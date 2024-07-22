@@ -1,0 +1,35 @@
+create table
+  public.users (
+    id serial,
+    username character varying(50) not null,
+    useremail character varying(100) not null,
+    password character varying(255) not null,
+    role character varying(50) not null,
+    datetime timestamp without time zone null default current_timestamp,
+    mobile_number character varying(50) null,
+  
+    constraint users_pkey primary key (id),
+    constraint users_useremail_key unique (useremail)
+  ) tablespace pg_default;
+
+  edit the above table 
+
+  remove phone_number character varying(50) null,   address character varying(255) null,
+    
+
+and add can_edit_staff boolean null default false,
+    can_edit_pipeline boolean null default false,
+    can_edit_product boolean null default false,
+    can_edit_files boolean null default false,
+    can_edit_enquiries boolean null default false,
+    can_edit_stock boolean null default false,
+    can_edit_product_enquiry boolean null default false,
+    can_edit_service_enquiry boolean null default false,
+    can_edit_sales boolean null default false,
+    can_see_performance boolean null default false,
+    is_admin boolean null default false,
+    employee_code text null,
+
+
+
+now the new code is 
