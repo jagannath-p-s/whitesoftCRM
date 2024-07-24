@@ -17,6 +17,7 @@ import DialogTitle from '@mui/material/DialogTitle';
 import Button from '@mui/material/Button';
 import Checkbox from '@mui/material/Checkbox';
 import FormControlLabel from '@mui/material/FormControlLabel';
+import PrintBillDialog from './PrintBillDialog';
 
 const Sales = () => {
   const initialExpandedColumns = [];
@@ -43,6 +44,9 @@ const Sales = () => {
     created_at: true,
     salesflow_code: true,
   });
+  const [printDialogOpen, setPrintDialogOpen] = useState(false);
+  const [customerDetails, setCustomerDetails] = useState(null);
+  const [dragResult, setDragResult] = useState(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -121,13 +125,57 @@ const Sales = () => {
         return column;
       }));
 
+      if (destination.droppableId === 'Customer-Won') {
+        setCustomerDetails(movedItem); // Pass customer details to the dialog
+        setPrintDialogOpen(true); // Open the print bill dialog
+        setDragResult(result);
+      } else {
+        const { error } = await supabase
+          .from('enquiries')
+          .update({ stage: destination.droppableId })
+          .eq('id', movedItem.id);
+        if (error) {
+          console.error('Error updating stage:', error);
+        }
+      }
+    }
+  };
+
+  const handlePrintClose = async (shouldMove) => {
+    setPrintDialogOpen(false);
+    if (shouldMove && dragResult) {
+      const { source, destination } = dragResult;
+      const movedItem = columns
+        .find(column => column.name === destination.droppableId)
+        .contacts.find(contact => contact.id === customerDetails.id);
+      
+      movedItem.stage = destination.droppableId;
+      movedItem.won_date = new Date().toISOString();
+      
       const { error } = await supabase
         .from('enquiries')
-        .update({ stage: destination.droppableId })
+        .update({ stage: destination.droppableId, won_date: movedItem.won_date })
         .eq('id', movedItem.id);
       if (error) {
         console.error('Error updating stage:', error);
       }
+    } else if (dragResult) {
+      const { source, destination } = dragResult;
+      const destinationColumn = columns.find(column => column.name === destination.droppableId);
+      const sourceColumn = columns.find(column => column.name === source.droppableId);
+      const destinationItems = Array.from(destinationColumn.contacts);
+      const sourceItems = Array.from(sourceColumn.contacts);
+      const [movedItem] = destinationItems.splice(destination.index, 1);
+      sourceItems.splice(source.index, 0, movedItem);
+
+      setColumns(columns.map(column => {
+        if (column.name === destination.droppableId) {
+          column.contacts = destinationItems;
+        } else if (column.name === source.droppableId) {
+          column.contacts = sourceItems;
+        }
+        return column;
+      }));
     }
   };
 
@@ -208,6 +256,12 @@ const Sales = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <PrintBillDialog
+        open={printDialogOpen}
+        handleClose={(shouldMove) => handlePrintClose(shouldMove)}
+        customer={customerDetails}
+      />
 
       {/* Content */}
       <div className="flex flex-grow p-4 space-x-4 overflow-x-auto">

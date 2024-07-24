@@ -234,17 +234,12 @@ const HomePage = () => {
                     <MenuIcon />
                   </button>
                 </Tooltip>
-                <SearchBar onSearch={handleSearchClick} />
+                <SearchBar onSearch={handleSearchClick} currentUserId={user.id} />
               </div>
               <div className="flex items-center space-x-4">
                 <Tooltip title="Notifications">
                   <button className="p-2 text-gray-500 hover:bg-gray-100 rounded-full">
                     <NotificationsNoneIcon />
-                  </button>
-                </Tooltip>
-                <Tooltip title="Add new">
-                  <button className="p-2 bg-blue-500 text-white rounded-full hover:bg-blue-600" onClick={handleAddMenuOpen}>
-                    <AddIcon />
                   </button>
                 </Tooltip>
                 <Menu

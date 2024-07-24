@@ -55,16 +55,19 @@ const BatchDialog = ({ open, onClose, onSave, products }) => {
       return;
     }
 
-    const isValid = batchesToAdd.every(batch => 
-      batch.productId && batch.expiryDate && batch.currentStock
+    const isValid = batchesToAdd.every(batch =>
+      batch.productId && batch.currentStock !== ''
     );
 
     if (!isValid) {
-      alert('Please fill in all fields for each product');
+      alert('Please fill in all required fields for each product');
       return;
     }
 
-    onSave(batchCode, batchesToAdd);
+    onSave(batchCode, batchesToAdd.map(batch => ({
+      ...batch,
+      expiryDate: batch.expiryDate || null
+    })));
     onClose();
   };
 
@@ -76,7 +79,7 @@ const BatchDialog = ({ open, onClose, onSave, products }) => {
   };
 
   const filteredProducts = (index) => {
-    return products.filter(product => 
+    return products.filter(product =>
       product.product_name.toLowerCase().includes(searchTerms[index].toLowerCase())
     );
   };

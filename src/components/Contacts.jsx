@@ -1,85 +1,195 @@
 import React, { useState, useEffect } from 'react';
-import PeopleOutlineIcon from '@mui/icons-material/PeopleOutline';
+import Tooltip from '@mui/material/Tooltip';
+import ShoppingBagOutlinedIcon from '@mui/icons-material/ShoppingBagOutlined';
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
 import TableChartOutlinedIcon from '@mui/icons-material/TableChartOutlined';
 import ViewListIcon from '@mui/icons-material/ViewList';
 import FileUploadOutlinedIcon from '@mui/icons-material/FileUploadOutlined';
-import FilterListIcon from '@mui/icons-material/FilterList';
-import DownloadIcon from '@mui/icons-material/Download';
-import Tooltip from '@mui/material/Tooltip';
-import Menu from '@mui/material/Menu';
-import MenuItem from '@mui/material/MenuItem';
-import IconButton from '@mui/material/IconButton';
-import TextField from '@mui/material/TextField';
+import Column from './Column';
+import TableView from './TableView';
 import { supabase } from '../supabaseClient';
-import ContactTable from './ContactTable';
+import { DragDropContext } from 'react-beautiful-dnd';
+import Dialog from '@mui/material/Dialog';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
+import DialogContentText from '@mui/material/DialogContentText';
+import DialogTitle from '@mui/material/DialogTitle';
+import Button from '@mui/material/Button';
+import Checkbox from '@mui/material/Checkbox';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import PrintBillDialog from './PrintBillDialog';
 
 const Contacts = () => {
+  const initialExpandedColumns = [];
+  const [expanded, setExpanded] = useState(initialExpandedColumns);
   const [view, setView] = useState('cards');
-  const [contacts, setContacts] = useState([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [anchorEl, setAnchorEl] = useState(null);
-  const [settingsAnchorEl, setSettingsAnchorEl] = useState(null);
-  const [filterAnchorEl, setFilterAnchorEl] = useState(null);
+  const [columns, setColumns] = useState([]);
+  const [users, setUsers] = useState({});
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [visibleFields, setVisibleFields] = useState({
+    name: true,
+    mobilenumber1: true,
+    mobilenumber2: false,
+    address: false,
+    location: false,
+    stage: false,
+    mailid: false,
+    leadsource: false,
+    assignedto: false,
+    remarks: false,
+    priority: true,
+    invoiced: true,
+    collected: false,
+    products: true,
+    created_at: true,
+    salesflow_code: true,
+  });
+  const [printDialogOpen, setPrintDialogOpen] = useState(false);
+  const [customerDetails, setCustomerDetails] = useState(null);
+  const [dragResult, setDragResult] = useState(null);
 
   useEffect(() => {
-    const fetchContacts = async () => {
-      const { data, error } = await supabase
-        .from('customer_common_info')
+    const fetchData = async () => {
+      const { data: enquiries, error: enquiriesError } = await supabase
+        .from('enquiries')
         .select('*');
 
-      if (error) {
-        console.error('Error fetching contacts:', error);
+      const { data: usersData, error: usersError } = await supabase
+        .from('users')
+        .select('id, username');
+
+      if (enquiriesError || usersError) {
+        console.error('Error fetching data:', enquiriesError || usersError);
       } else {
-        setContacts(data);
+        const categorizedData = [
+          { name: 'Lead', color: 'purple', bgColor: 'bg-purple-50', contacts: [] },
+          { name: 'Prospect', color: 'blue', bgColor: 'bg-blue-50', contacts: [] },
+          { name: 'Opportunity', color: 'indigo', bgColor: 'bg-indigo-50', contacts: [] },
+          { name: 'Customer-Won', color: 'green', bgColor: 'bg-green-50', contacts: [] },
+          { name: 'Lost/Rejected', color: 'red', bgColor: 'bg-red-50', contacts: [] },
+        ];
+
+        enquiries.forEach((contact) => {
+          const category = categorizedData.find(c => c.name === contact.stage);
+          if (category) {
+            category.contacts.push(contact);
+          }
+        });
+
+        const usersMap = usersData.reduce((acc, user) => {
+          acc[user.id] = user;
+          return acc;
+        }, {});
+
+        setUsers(usersMap);
+        setColumns(categorizedData);
       }
     };
 
-    fetchContacts();
+    fetchData();
   }, []);
 
-  const handleMenuOpen = (event) => {
-    setAnchorEl(event.currentTarget);
+  const toggleExpand = (column) => {
+    if (expanded.includes(column)) {
+      setExpanded(expanded.filter((c) => c !== column));
+    } else {
+      if (expanded.length < 4) {
+        setExpanded([...expanded, column]);
+      } else {
+        const [first, ...rest] = expanded;
+        setExpanded([...rest, column]);
+      }
+    }
   };
 
-  const handleMenuClose = () => {
-    setAnchorEl(null);
-    setSettingsAnchorEl(null);
-    setFilterAnchorEl(null);
+  const onDragEnd = async (result) => {
+    if (!result.destination) return;
+
+    const { source, destination } = result;
+    if (source.droppableId !== destination.droppableId) {
+      const sourceColumn = columns.find(column => column.name === source.droppableId);
+      const destinationColumn = columns.find(column => column.name === destination.droppableId);
+      const sourceItems = Array.from(sourceColumn.contacts);
+      const [movedItem] = sourceItems.splice(source.index, 1);
+      const destinationItems = Array.from(destinationColumn.contacts);
+      destinationItems.splice(destination.index, 0, movedItem);
+
+      movedItem.stage = destination.droppableId;
+
+      setColumns(columns.map(column => {
+        if (column.name === source.droppableId) {
+          column.contacts = sourceItems;
+        } else if (column.name === destination.droppableId) {
+          column.contacts = destinationItems;
+        }
+        return column;
+      }));
+
+      if (destination.droppableId === 'Customer-Won') {
+        setCustomerDetails(movedItem); // Pass customer details to the dialog
+        setPrintDialogOpen(true); // Open the print bill dialog
+        setDragResult(result);
+      } else {
+        const { error } = await supabase
+          .from('enquiries')
+          .update({ stage: destination.droppableId })
+          .eq('id', movedItem.id);
+        if (error) {
+          console.error('Error updating stage:', error);
+        }
+      }
+    }
   };
 
-  const handleSettingsMenuOpen = (event) => {
-    setSettingsAnchorEl(event.currentTarget);
+  const handlePrintClose = async (shouldMove) => {
+    setPrintDialogOpen(false);
+    if (shouldMove && dragResult) {
+      const { source, destination } = dragResult;
+      const movedItem = columns
+        .find(column => column.name === destination.droppableId)
+        .contacts.find(contact => contact.id === customerDetails.id);
+      
+      movedItem.stage = destination.droppableId;
+      movedItem.won_date = new Date().toISOString();
+      
+      const { error } = await supabase
+        .from('enquiries')
+        .update({ stage: destination.droppableId, won_date: movedItem.won_date })
+        .eq('id', movedItem.id);
+      if (error) {
+        console.error('Error updating stage:', error);
+      }
+    } else if (dragResult) {
+      const { source, destination } = dragResult;
+      const destinationColumn = columns.find(column => column.name === destination.droppableId);
+      const sourceColumn = columns.find(column => column.name === source.droppableId);
+      const destinationItems = Array.from(destinationColumn.contacts);
+      const sourceItems = Array.from(sourceColumn.contacts);
+      const [movedItem] = destinationItems.splice(destination.index, 1);
+      sourceItems.splice(source.index, 0, movedItem);
+
+      setColumns(columns.map(column => {
+        if (column.name === destination.droppableId) {
+          column.contacts = destinationItems;
+        } else if (column.name === source.droppableId) {
+          column.contacts = sourceItems;
+        }
+        return column;
+      }));
+    }
   };
 
-  const handleFilterMenuOpen = (event) => {
-    setFilterAnchorEl(event.currentTarget);
+  const handleSettingsOpen = () => {
+    setSettingsOpen(true);
   };
 
-  const handleDownloadContacts = () => {
-    const data = contacts.map((contact) => ({
-      Name: contact.name,
-      'Mobile Number 1': contact.mobilenumber1,
-      'Mobile Number 2': contact.mobilenumber2,
-      Address: contact.address,
-      Location: contact.location,
-      Email: contact.mailid,
-    }));
-
-    const json = JSON.stringify(data, null, 2);
-    const blob = new Blob([json], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'contacts.json';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
+  const handleSettingsClose = () => {
+    setSettingsOpen(false);
   };
 
-  const filteredContacts = contacts.filter((contact) =>
-    contact.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const handleFieldChange = (event) => {
+    setVisibleFields({ ...visibleFields, [event.target.name]: event.target.checked });
+  };
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-100">
@@ -88,103 +198,90 @@ const Contacts = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-3">
             <div className="flex items-center space-x-4">
-              <PeopleOutlineIcon className="text-blue-500" style={{ fontSize: '1.75rem' }} />
-              <h1 className="text-xl font-semibold ml-2">Contacts</h1>
+              <div className="flex items-center">
+                <ShoppingBagOutlinedIcon className="text-blue-500" style={{ fontSize: '1.75rem' }} />
+                <h1 className="text-xl font-semibold ml-2">Contacts</h1>
+              </div>
             </div>
-            <div className="flex items-center space-x-2">
-              <TextField
-                variant="outlined"
-                placeholder="Search contacts..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                size="small"
-              />
-              <Tooltip title="Download">
-                <IconButton
-                  onClick={handleDownloadContacts}
-                  style={{ backgroundColor: '#e3f2fd', color: '#1e88e5', borderRadius: '12px' }}
-                >
-                  <DownloadIcon style={{ fontSize: '1.75rem' }} />
-                </IconButton>
-              </Tooltip>
-              <Tooltip title="Filter">
-                <IconButton
-                  onClick={handleFilterMenuOpen}
-                  style={{ backgroundColor: '#e3f2fd', color: '#1e88e5', borderRadius: '12px' }}
-                >
-                  <FilterListIcon style={{ fontSize: '1.75rem' }} />
-                </IconButton>
-              </Tooltip>
+            <div className="flex items-center space-x-4">
               <Tooltip title="Settings">
-                <IconButton
-                  onClick={handleSettingsMenuOpen}
-                  style={{ backgroundColor: '#e3f2fd', color: '#1e88e5', borderRadius: '12px' }}
-                >
+                <button className="p-2 text-gray-500 hover:bg-gray-100 rounded-full" onClick={handleSettingsOpen}>
                   <SettingsOutlinedIcon style={{ fontSize: '1.75rem' }} />
-                </IconButton>
+                </button>
               </Tooltip>
               <Tooltip title={view === 'cards' ? "Table View" : "Card View"}>
-                <IconButton
+                <button
+                  className="p-2 text-gray-500 hover:bg-gray-100 rounded-full"
                   onClick={() => setView(view === 'cards' ? 'table' : 'cards')}
-                  style={{ backgroundColor: '#e3f2fd', color: '#1e88e5', borderRadius: '12px' }}
                 >
                   {view === 'cards' ? (
                     <TableChartOutlinedIcon style={{ fontSize: '1.75rem' }} />
                   ) : (
                     <ViewListIcon style={{ fontSize: '1.75rem' }} />
                   )}
-                </IconButton>
+                </button>
               </Tooltip>
               <Tooltip title="Upload">
-                <IconButton
-                  onClick={handleMenuOpen}
-                  style={{ backgroundColor: '#e3f2fd', color: '#1e88e5', borderRadius: '12px' }}
-                >
+                <button className="p-2 text-gray-500 hover:bg-gray-100 rounded-full">
                   <FileUploadOutlinedIcon style={{ fontSize: '1.75rem' }} />
-                </IconButton>
+                </button>
               </Tooltip>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Content */}
-      <div className="flex flex-col p-4">
-        {view === 'cards' ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {filteredContacts.map((contact, index) => (
-              <div key={index} className="bg-white rounded-lg shadow-md p-4 flex flex-col justify-between">
-                <div>
-                  <h2 className="text-lg font-semibold">{contact.name}</h2>
-                  <p className="text-sm text-gray-600">Primary Contact: {contact.mobilenumber1}</p>
-                  {contact.mobilenumber2 && <p className="text-sm text-gray-600">Secondary Contact: {contact.mobilenumber2}</p>}
-                  <p className="text-sm text-gray-600">Email: {contact.mailid}</p>
-                  <p className="text-sm text-gray-600">Address: {contact.address}</p>
-                  <p className="text-sm text-gray-600">Location: {contact.location}</p>
-                </div>
-                <div className="mt-4">
-                  <button className="w-full bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600">
-                    Add New Purchase
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <ContactTable contacts={filteredContacts} />
-        )}
-      </div>
+      {/* Settings Dialog */}
+      <Dialog open={settingsOpen} onClose={handleSettingsClose}>
+        <DialogTitle>Customize Contact Card Fields</DialogTitle>
+        <DialogContent>
+          <DialogContentText>Select which fields to display in the contact card.</DialogContentText>
+          {Object.keys(visibleFields).map((field) => (
+            <FormControlLabel
+              key={field}
+              control={
+                <Checkbox
+                  checked={visibleFields[field]}
+                  onChange={handleFieldChange}
+                  name={field}
+                />
+              }
+              label={field.charAt(0).toUpperCase() + field.slice(1)}
+            />
+          ))}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleSettingsClose} color="primary">
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
 
-      {/* Menus */}
-      <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleMenuClose}>
-        <MenuItem onClick={handleMenuClose}>Upload Contacts</MenuItem>
-      </Menu>
-      <Menu anchorEl={settingsAnchorEl} open={Boolean(settingsAnchorEl)} onClose={handleMenuClose}>
-        <MenuItem onClick={handleMenuClose}>Settings</MenuItem>
-      </Menu>
-      <Menu anchorEl={filterAnchorEl} open={Boolean(filterAnchorEl)} onClose={handleMenuClose}>
-        <MenuItem onClick={handleMenuClose}>Filter Options</MenuItem>
-      </Menu>
+      <PrintBillDialog
+        open={printDialogOpen}
+        handleClose={(shouldMove) => handlePrintClose(shouldMove)}
+        customer={customerDetails}
+      />
+
+      {/* Content */}
+      <div className="flex flex-grow p-4 space-x-4 overflow-x-auto">
+        <DragDropContext onDragEnd={onDragEnd}>
+          {view === 'cards' ? (
+            columns.map((column) => (
+              <Column
+                key={column.name}
+                column={column}
+                expanded={expanded}
+                toggleExpand={toggleExpand}
+                users={users}
+                visibleFields={visibleFields}
+              />
+            ))
+          ) : (
+            <TableView columns={columns} users={users} visibleFields={visibleFields} />
+          )}
+        </DragDropContext>
+      </div>
     </div>
   );
 };

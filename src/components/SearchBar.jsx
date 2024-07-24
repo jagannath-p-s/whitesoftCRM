@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Search as SearchIcon, Add as AddIcon } from '@mui/icons-material';
-import { Menu, MenuItem, Box } from '@mui/material';
+import { Menu, MenuItem, Box, Snackbar, Alert } from '@mui/material';
 import { supabase } from '../supabaseClient';
 import AddEnquiryDialog from './AddEnquiryDialog';
-import AddTaskDialog from './AddTaskDialog';
+import AddServiceEnquiryDialog from './AddServiceEnquiryDialog';
 
 const SearchBar = ({ onSearch, currentUserId }) => {
   const [anchorEl, setAnchorEl] = useState(null);
@@ -16,6 +16,7 @@ const SearchBar = ({ onSearch, currentUserId }) => {
   const [productSearchTerm, setProductSearchTerm] = useState('');
   const [totalEstimate, setTotalEstimate] = useState(0);
   const [users, setUsers] = useState([]);
+  const [totalProducts, setTotalProducts] = useState(0);
   const [enquiryData, setEnquiryData] = useState({
     name: '',
     mobilenumber1: '',
@@ -30,7 +31,12 @@ const SearchBar = ({ onSearch, currentUserId }) => {
     priority: 'Medium',
     invoiced: false,
     collected: false,
+    created_at: new Date().toISOString(),
+    salesflow_code: '',
+    won_date: null,
   });
+
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
   const ITEMS_PER_PAGE = 10;
 
@@ -58,10 +64,10 @@ const SearchBar = ({ onSearch, currentUserId }) => {
 
   const fetchProducts = async () => {
     try {
-      let query = supabase.from('products_view').select('*', { count: 'exact' });
+      let query = supabase.from('products').select('*', { count: 'exact' });
 
       if (productSearchTerm) {
-        query = query.ilike('product_name', `%${productSearchTerm}%`);
+        query = query.or(`product_name.ilike.%${productSearchTerm}%,item_alias.ilike.%${productSearchTerm}%`);
       }
 
       const { data, error, count } = await query
@@ -70,6 +76,7 @@ const SearchBar = ({ onSearch, currentUserId }) => {
 
       if (error) throw error;
       setProducts(data);
+      setTotalProducts(count);
     } catch (error) {
       console.error('Error fetching products:', error.message);
     }
@@ -93,7 +100,7 @@ const SearchBar = ({ onSearch, currentUserId }) => {
   };
 
   const handleDialogOpen = (type) => {
-    console.log('Opening dialog:', type); // Debugging log
+    console.log('Opening dialog:', type);
     setDialogType(type);
     setDialogOpen(true);
     setAnchorEl(null);
@@ -115,6 +122,9 @@ const SearchBar = ({ onSearch, currentUserId }) => {
       priority: 'Medium',
       invoiced: false,
       collected: false,
+      created_at: new Date().toISOString(),
+      salesflow_code: '',
+      won_date: null,
     }));
   };
 
@@ -161,22 +171,36 @@ const SearchBar = ({ onSearch, currentUserId }) => {
 
   const handleFormSubmit = async () => {
     try {
-      const enquiryToSave = {
+      // Create a deep copy of enquiryData to avoid circular structure issues
+      const enquiryToSave = JSON.parse(JSON.stringify({
         ...enquiryData,
-        products: dialogType === 'product' ? JSON.stringify(selectedProducts) : null,
-      };
-  
+        products: dialogType === 'product' ? selectedProducts : null,
+      }));
+
       console.log('Enquiry to be saved:', enquiryToSave);
-  
-      const { data, error } = await supabase.from('enquiries').insert([enquiryToSave]);
-  
+
+      const { data: result, error } = await supabase.from('enquiries').insert([enquiryToSave]);
+
       if (error) throw error;
-      console.log('Enquiry saved successfully:', data);
+      console.log('Enquiry saved successfully:', result);
+      showSnackbar('Enquiry saved successfully!', 'success');
       handleDialogClose();
     } catch (error) {
       console.error('Error saving enquiry:', error.message);
-      alert('Failed to save the enquiry. Please try again.');
+      showSnackbar(`Failed to save the enquiry: ${error.message}`, 'error');
     }
+  };
+
+  const handlePageChange = (event, value) => {
+    setPage(value);
+  };
+
+  const showSnackbar = (message, severity) => {
+    setSnackbar({ open: true, message, severity });
+  };
+
+  const handleCloseSnackbar = () => {
+    setSnackbar((prev) => ({ ...prev, open: false }));
   };
 
   return (
@@ -207,10 +231,19 @@ const SearchBar = ({ onSearch, currentUserId }) => {
       <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleMenuClose}>
         <MenuItem onClick={() => handleDialogOpen('service')}>Add Service Enquiry</MenuItem>
         <MenuItem onClick={() => handleDialogOpen('product')}>Add Product Enquiry</MenuItem>
-        <MenuItem onClick={() => handleDialogOpen('task')}>Add Task</MenuItem>
       </Menu>
 
-      {dialogType === 'service' || dialogType === 'product' ? (
+      {dialogType === 'service' ? (
+        <AddServiceEnquiryDialog
+          dialogOpen={dialogOpen}
+          handleDialogClose={handleDialogClose}
+          handleFormSubmit={handleFormSubmit}
+          enquiryData={enquiryData}
+          handleEnquiryDataChange={handleEnquiryDataChange}
+          users={users}
+          currentUserId={currentUserId}
+        />
+      ) : (
         <AddEnquiryDialog
           dialogOpen={dialogOpen}
           dialogType={dialogType}
@@ -226,18 +259,24 @@ const SearchBar = ({ onSearch, currentUserId }) => {
           productSearchTerm={productSearchTerm}
           handleProductSearchChange={handleProductSearchChange}
           page={page}
-          handlePageChange={(event, value) => setPage(value)}
+          handlePageChange={handlePageChange}
           totalEstimate={totalEstimate}
           ITEMS_PER_PAGE={ITEMS_PER_PAGE}
-        />
-      ) : (
-        <AddTaskDialog
-          open={dialogOpen}
-          handleClose={handleDialogClose}
-          enquiryId={enquiryData.id}
-          assignedBy={currentUserId}
+          totalProducts={totalProducts}
+          currentUserId={currentUserId}
         />
       )}
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} sx={{ width: '100%' }}>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

@@ -42,19 +42,18 @@ import {
   Category as CategoryIcon,
   SubdirectoryArrowRight as SubdirectoryArrowRightIcon,
   Storage as StorageIcon,
+  CloudUpload as CloudUploadIcon,
+  Image as ImageIcon
 } from '@mui/icons-material';
-import BatchDialog from './BatchDialog';  // Adjust the import path as needed
 
 const Stock = () => {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [subcategories, setSubcategories] = useState([]);
-  const [batches, setBatches] = useState([]);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [productDialogOpen, setProductDialogOpen] = useState(false);
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
   const [subcategoryDialogOpen, setSubcategoryDialogOpen] = useState(false);
-  const [batchDialogOpen, setBatchDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [newCategoryName, setNewCategoryName] = useState('');
@@ -66,8 +65,17 @@ const Stock = () => {
   const [productSubcategory, setProductSubcategory] = useState('');
   const [productPrice, setProductPrice] = useState('');
   const [productMinStock, setProductMinStock] = useState('');
-  const [productMaxStock, setProductMaxStock] = useState('');
   const [productCurrentStock, setProductCurrentStock] = useState('');
+  const [productSerialNumber, setProductSerialNumber] = useState('');
+  const [productItemName, setProductItemName] = useState('');
+  const [productItemAlias, setProductItemAlias] = useState('');
+  const [productPartNumber, setProductPartNumber] = useState('');
+  const [productModel, setProductModel] = useState('');
+  const [productRemarks, setProductRemarks] = useState('');
+  const [productStockGroup, setProductStockGroup] = useState('');
+  const [productImage, setProductImage] = useState(null);
+  const [productImagePreview, setProductImagePreview] = useState('');
+  const [productImageUrl, setProductImageUrl] = useState('');
   const [anchorEl, setAnchorEl] = useState(null);
   const [settingsAnchorEl, setSettingsAnchorEl] = useState(null);
   const [filterAnchorEl, setFilterAnchorEl] = useState(null);
@@ -80,18 +88,25 @@ const Stock = () => {
     subcategory: true,
     price: true,
     minStock: true,
-    maxStock: true,
+    serialNumber: true,
+    itemName: true,
+    itemAlias: true,
+    partNumber: true,
+    model: true,
+    remarks: true,
+    stockGroup: true,
+    imageLink: true,
   });
   const [searchTerm, setSearchTerm] = useState('');
   const [productToDelete, setProductToDelete] = useState(null);
   const [productAnchorEl, setProductAnchorEl] = useState(null);
   const [selectedProductForMenu, setSelectedProductForMenu] = useState(null);
+  const [imageDialogOpen, setImageDialogOpen] = useState(false);
 
   useEffect(() => {
     fetchProducts();
     fetchCategories();
     fetchSubcategories();
-    fetchBatches();
   }, []);
 
   const fetchProducts = async () => {
@@ -121,15 +136,6 @@ const Stock = () => {
     }
   };
 
-  const fetchBatches = async () => {
-    const { data, error } = await supabase.from('batches').select('*');
-    if (error) {
-      showSnackbar(`Error fetching batches: ${error.message}`, 'error');
-    } else {
-      setBatches(data);
-    }
-  };
-
   const handleMenuOpen = (event) => {
     setAnchorEl(event.currentTarget);
   };
@@ -156,20 +162,21 @@ const Stock = () => {
     setProductSubcategory('');
     setProductPrice('');
     setProductMinStock('');
-    setProductMaxStock('');
     setProductCurrentStock('');
+    setProductSerialNumber('');
+    setProductItemName('');
+    setProductItemAlias('');
+    setProductPartNumber('');
+    setProductModel('');
+    setProductRemarks('');
+    setProductStockGroup('');
+    setProductImageUrl('');
+    setProductImage(null);
+    setProductImagePreview('');
     setProductDialogOpen(true);
     handleMenuClose();
   };
 
-  const handleOpenBatchDialog = () => {
-    setBatchDialogOpen(true);
-    handleMenuClose();
-  };
-
-  const handleCloseBatchDialog = () => {
-    setBatchDialogOpen(false);
-  };
   const handleOpenCategoryDialog = () => {
     setNewCategoryName('');
     setCategoryDialogOpen(true);
@@ -184,9 +191,26 @@ const Stock = () => {
   };
 
   const handleCloseProductDialog = () => {
+    setSelectedProduct(null);
+    setProductName('');
+    setBrand('');
+    setProductCategory('');
+    setProductSubcategory('');
+    setProductPrice('');
+    setProductMinStock('');
+    setProductCurrentStock('');
+    setProductSerialNumber('');
+    setProductItemName('');
+    setProductItemAlias('');
+    setProductPartNumber('');
+    setProductModel('');
+    setProductRemarks('');
+    setProductStockGroup('');
+    setProductImageUrl('');
+    setProductImage(null);
+    setProductImagePreview('');
     setProductDialogOpen(false);
   };
-
 
   const handleCloseCategoryDialog = () => {
     setCategoryDialogOpen(false);
@@ -221,66 +245,82 @@ const Stock = () => {
   };
 
   const handleSaveProduct = async () => {
-    const productData = {
-      product_name: productName,
-      brand: brand,
-      category_id: productCategory,
-      subcategory_id: productSubcategory,
-      price: parseFloat(productPrice),
-      min_stock: parseInt(productMinStock),
-      max_stock: parseInt(productMaxStock),
-      current_stock: parseInt(productCurrentStock),
-    };
-
-    if (selectedProduct) {
-      const { error } = await supabase
-        .from('products')
-        .update(productData)
-        .eq('product_id', selectedProduct.product_id);
-      if (error) {
-        showSnackbar(`Error updating product: ${error.message}`, 'error');
-      } else {
-        showSnackbar('Product updated successfully', 'success');
-        fetchProducts();
-        handleCloseProductDialog();
-      }
-    } else {
-      const { error } = await supabase
-        .from('products')
-        .insert([productData]);
-      if (error) {
-        showSnackbar(`Error adding product: ${error.message}`, 'error');
-      } else {
-        showSnackbar('Product added successfully', 'success');
-        fetchProducts();
-        handleCloseProductDialog();
-      }
-    }
-  };
-
-  const handleSaveBatches = async (batchCode, batchesToAdd) => {
     try {
-      const batchData = batchesToAdd.map((batch) => ({
-        product_id: batch.productId,
-        batch_code: batchCode,
-        expiry_date: batch.expiryDate,
-        current_stock: parseInt(batch.currentStock),
-      }));
+        let imageUrl = productImageUrl; // Initialize with the current image URL
 
-      const { error } = await supabase.from('batches').insert(batchData);
-      if (error) {
-        showSnackbar(`Error adding batches: ${error.message}`, 'error');
-      } else {
-        showSnackbar('Batches added successfully', 'success');
-        fetchBatches();
-        fetchProducts(); // Refresh products to update stock levels
-        handleCloseBatchDialog();
-      }
+        // Upload image if a new one is selected
+        if (productImage) {
+            const fileName = `${Date.now()}-${productImage.name}`;
+            const { error: uploadError } = await supabase.storage
+                .from('files')
+                .upload(fileName, productImage);
+
+            if (uploadError) {
+                throw new Error(`Error uploading image: ${uploadError.message}`);
+            }
+
+            const { publicURL, error: urlError } = supabase.storage
+                .from('files')
+                .getPublicUrl(fileName);
+
+            if (urlError) {
+                throw new Error(`Error fetching image URL: ${urlError.message}`);
+            }
+
+            imageUrl = publicURL; // Update imageUrl to the public URL of the uploaded image
+        }
+
+        // Prepare product data
+        const productData = {
+            product_name: productName,
+            brand: brand,
+            category_id: productCategory,
+            subcategory_id: productSubcategory,
+            price: parseFloat(productPrice),
+            min_stock: parseInt(productMinStock),
+            current_stock: parseInt(productCurrentStock),
+            serial_number: productSerialNumber,
+            item_name: productItemName,
+            item_alias: productItemAlias,
+            part_number: productPartNumber,
+            model: productModel,
+            remarks: productRemarks,
+            stock_group: productStockGroup,
+            image_link: imageUrl, // Ensure the image link is included
+        };
+
+        let result;
+        if (selectedProduct) {
+            // Update existing product
+            result = await supabase
+                .from('products')
+                .update(productData)
+                .eq('product_id', selectedProduct.product_id);
+        } else {
+            // Insert new product
+            result = await supabase
+                .from('products')
+                .insert([productData]);
+        }
+
+        // Check for errors in the result
+        if (result.error) {
+            throw new Error(result.error.message);
+        }
+
+        // Show success message and refresh products
+        showSnackbar(selectedProduct ? 'Product updated successfully' : 'Product added successfully', 'success');
+        fetchProducts(); // Refresh the product list
+        handleCloseProductDialog(); // Close the dialog
+
     } catch (error) {
-      showSnackbar(`Error adding batches: ${error.message}`, 'error');
-    }};
+        console.error('Error saving product:', error);
+        showSnackbar(`Error saving product: ${error.message}`, 'error');
+    }
+};
 
-  const handleEditProduct = (product) => {
+// Function to handle editing a product
+const handleEditProduct = (product) => {
     setSelectedProduct(product);
     setProductName(product.product_name);
     setBrand(product.brand);
@@ -288,10 +328,18 @@ const Stock = () => {
     setProductSubcategory(product.subcategory_id);
     setProductPrice(product.price);
     setProductMinStock(product.min_stock);
-    setProductMaxStock(product.max_stock);
     setProductCurrentStock(product.current_stock);
+    setProductSerialNumber(product.serial_number);
+    setProductItemName(product.item_name);
+    setProductItemAlias(product.item_alias);
+    setProductPartNumber(product.part_number);
+    setProductModel(product.model);
+    setProductRemarks(product.remarks);
+    setProductStockGroup(product.stock_group);
+    setProductImageUrl(product.image_link); // Set the image URL for editing
     setProductDialogOpen(true);
-  };
+};
+
 
   const handleDeleteProduct = (product_id) => {
     setProductToDelete(product_id);
@@ -326,11 +374,9 @@ const Stock = () => {
     setSnackbar({ ...snackbar, open: false });
   };
 
-  const getCurrentStockColor = (current, min, max) => {
+  const getCurrentStockColor = (current, min) => {
     if (current <= min) return 'red';
-    if (current > min && current <= max * 0.5) return 'darkorange';
-    if (current > max * 0.5 && current < max) return 'yellowgreen';
-    if (current >= max) return 'green';
+    if (current > min) return 'green';
     return 'gray';
   };
 
@@ -354,8 +400,7 @@ const Stock = () => {
       'Subcategory': subcategories.find(sub => sub.subcategory_id === product.subcategory_id)?.subcategory_name,
       'Price': product.price,
       'Min Stock': product.min_stock,
-      'Max Stock': product.max_stock,
-      'Current Stock': getTotalStock(product.product_id),
+      'Current Stock': product.current_stock,
     }));
 
     const json = JSON.stringify(data, null, 2);
@@ -380,9 +425,27 @@ const Stock = () => {
   };
 
   const getTotalStock = (productId) => {
-    return batches
-      .filter(batch => batch.product_id === productId)
-      .reduce((total, batch) => total + batch.current_stock, 0);
+    return products
+      .filter(product => product.product_id === productId)
+      .reduce((total, product) => total + product.current_stock, 0);
+  };
+
+  const handleImageUpload = (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    setProductImage(file);
+    setProductImagePreview(URL.createObjectURL(file));
+  };
+
+  const handleViewImage = (imageLink) => {
+    setProductImageUrl(imageLink);
+    setImageDialogOpen(true);
+  };
+
+  const handleCloseImageDialog = () => {
+    setImageDialogOpen(false);
+    setProductImageUrl('');
   };
 
   const filteredProducts = products.filter((product) => {
@@ -393,11 +456,10 @@ const Stock = () => {
       subcategories.find((sub) => sub.subcategory_id === product.subcategory_id)?.subcategory_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       product.price.toString().includes(searchTerm.toLowerCase()) ||
       product.min_stock.toString().includes(searchTerm.toLowerCase()) ||
-      product.max_stock.toString().includes(searchTerm.toLowerCase()) ||
-      getTotalStock(product.product_id).toString().includes(searchTerm.toLowerCase());
+      product.current_stock.toString().includes(searchTerm.toLowerCase());
 
     if (filterStockLevel) {
-      const color = getCurrentStockColor(getTotalStock(product.product_id), product.min_stock, product.max_stock);
+      const color = getCurrentStockColor(product.current_stock, product.min_stock);
       return matchesSearchTerm && color === filterStockLevel;
     }
     return matchesSearchTerm;
@@ -463,12 +525,6 @@ const Stock = () => {
                   </ListItemIcon>
                   <ListItemText primary="Add Subcategory" />
                 </MenuItem>
-                <MenuItem onClick={handleOpenBatchDialog} sx={{ padding: '12px 24px' }}>
-                  <ListItemIcon>
-                    <InventoryIcon fontSize="medium" />
-                  </ListItemIcon>
-                  <ListItemText primary="Add Batch" />
-                </MenuItem>
               </Menu>
               <Menu anchorEl={filterAnchorEl} open={Boolean(filterAnchorEl)} onClose={handleMenuClose}>
                 <MenuItem onClick={() => { handleFilterChange({ target: { value: '' } }); handleMenuClose(); }}>
@@ -477,14 +533,8 @@ const Stock = () => {
                 <MenuItem onClick={() => { handleFilterChange({ target: { value: 'red' } }); handleMenuClose(); }}>
                   Low Stock
                 </MenuItem>
-                <MenuItem onClick={() => { handleFilterChange({ target: { value: 'darkorange' } }); handleMenuClose(); }}>
-                  Medium-Low Stock
-                </MenuItem>
-                <MenuItem onClick={() => { handleFilterChange({ target: { value: 'yellowgreen' } }); handleMenuClose(); }}>
-                  Medium-High Stock
-                </MenuItem>
                 <MenuItem onClick={() => { handleFilterChange({ target: { value: 'green' } }); handleMenuClose(); }}>
-                  High Stock
+                  In Stock
                 </MenuItem>
               </Menu>
               <Menu anchorEl={settingsAnchorEl} open={Boolean(settingsAnchorEl)} onClose={handleMenuClose}>
@@ -527,21 +577,34 @@ const Stock = () => {
               {filteredProducts.map((product) => (
                 <TableRow key={product.product_id} className="bg-white border-b">
                   {visibleColumns.currentStock && (
-               
                     <TableCell
-                      sx={{ fontWeight: 'bold', color: getCurrentStockColor(product.current_stock, product.min_stock, product.max_stock) }}
+                      sx={{ fontWeight: 'bold', color: getCurrentStockColor(product.current_stock, product.min_stock) }}
                     >
                       {product.current_stock}
                     </TableCell>
-                                    )}
-                  
+                  )}
                   {visibleColumns.productName && <TableCell>{product.product_name}</TableCell>}
                   {visibleColumns.brand && <TableCell>{product.brand}</TableCell>}
                   {visibleColumns.category && <TableCell>{categories.find((cat) => cat.category_id === product.category_id)?.category_name}</TableCell>}
                   {visibleColumns.subcategory && <TableCell>{subcategories.find((sub) => sub.subcategory_id === product.subcategory_id)?.subcategory_name}</TableCell>}
                   {visibleColumns.price && <TableCell>{product.price}</TableCell>}
                   {visibleColumns.minStock && <TableCell>{product.min_stock}</TableCell>}
-                  {visibleColumns.maxStock && <TableCell>{product.max_stock}</TableCell>}
+                  {visibleColumns.serialNumber && <TableCell>{product.serial_number}</TableCell>}
+                  {visibleColumns.itemName && <TableCell>{product.item_name}</TableCell>}
+                  {visibleColumns.itemAlias && <TableCell>{product.item_alias}</TableCell>}
+                  {visibleColumns.partNumber && <TableCell>{product.part_number}</TableCell>}
+                  {visibleColumns.model && <TableCell>{product.model}</TableCell>}
+                  {visibleColumns.remarks && <TableCell>{product.remarks}</TableCell>}
+                  {visibleColumns.stockGroup && <TableCell>{product.stock_group}</TableCell>}
+                  {visibleColumns.imageLink && (
+                    <TableCell>
+                      <Tooltip title="View Image">
+                        <IconButton onClick={() => handleViewImage(product.image_link)}>
+                          <ImageIcon />
+                        </IconButton>
+                      </Tooltip>
+                    </TableCell>
+                  )}
                   <TableCell>
                     <Tooltip title="More options">
                       <IconButton onClick={(event) => handleProductMenuOpen(event, product)}>
@@ -578,6 +641,62 @@ const Stock = () => {
         <DialogTitle>{selectedProduct ? 'Edit Product' : 'Add Product'}</DialogTitle>
         <DialogContent>
           <Box sx={{ mt: 2 }}>
+            <TextField
+              label="Serial Number"
+              variant="outlined"
+              fullWidth
+              margin="dense"
+              value={productSerialNumber}
+              onChange={(e) => setProductSerialNumber(e.target.value)}
+            />
+            <TextField
+              label="Item Name"
+              variant="outlined"
+              fullWidth
+              margin="dense"
+              value={productItemName}
+              onChange={(e) => setProductItemName(e.target.value)}
+            />
+            <TextField
+              label="Item Alias"
+              variant="outlined"
+              fullWidth
+              margin="dense"
+              value={productItemAlias}
+              onChange={(e) => setProductItemAlias(e.target.value)}
+            />
+            <TextField
+              label="Part Number"
+              variant="outlined"
+              fullWidth
+              margin="dense"
+              value={productPartNumber}
+              onChange={(e) => setProductPartNumber(e.target.value)}
+            />
+            <TextField
+              label="Model"
+              variant="outlined"
+              fullWidth
+              margin="dense"
+              value={productModel}
+              onChange={(e) => setProductModel(e.target.value)}
+            />
+            <TextField
+              label="Remarks"
+              variant="outlined"
+              fullWidth
+              margin="dense"
+              value={productRemarks}
+              onChange={(e) => setProductRemarks(e.target.value)}
+            />
+            <TextField
+              label="Stock Group"
+              variant="outlined"
+              fullWidth
+              margin="dense"
+              value={productStockGroup}
+              onChange={(e) => setProductStockGroup(e.target.value)}
+            />
             <TextField
               label="Product Name"
               variant="outlined"
@@ -643,15 +762,6 @@ const Stock = () => {
               onChange={(e) => setProductMinStock(e.target.value)}
             />
             <TextField
-              label="Max Stock"
-              variant="outlined"
-              fullWidth
-              margin="dense"
-              type="number"
-              value={productMaxStock}
-              onChange={(e) => setProductMaxStock(e.target.value)}
-            />
-            <TextField
               label="Current Stock"
               variant="outlined"
               fullWidth
@@ -660,6 +770,33 @@ const Stock = () => {
               value={productCurrentStock}
               onChange={(e) => setProductCurrentStock(e.target.value)}
             />
+            <input
+              accept="image/*"
+              style={{ display: 'none' }}
+              id="product-image-upload"
+              type="file"
+              onChange={handleImageUpload}
+            />
+            <label htmlFor="product-image-upload">
+              <Button
+                variant="contained"
+                color="primary"
+                component="span"
+                startIcon={<CloudUploadIcon />}
+                sx={{ mt: 2 }}
+              >
+                Upload Image
+              </Button>
+            </label>
+            {(productImagePreview || productImageUrl) && (
+              <Box sx={{ mt: 2 }}>
+                <img 
+                  src={productImagePreview || productImageUrl} 
+                  alt="Product" 
+                  style={{ maxWidth: '100%', maxHeight: 200 }} 
+                />
+              </Box>
+            )}
           </Box>
         </DialogContent>
         <DialogActions>
@@ -671,14 +808,6 @@ const Stock = () => {
           </Button>
         </DialogActions>
       </Dialog>
-
-      <BatchDialog
-        open={batchDialogOpen}
-        onClose={handleCloseBatchDialog}
-        onSave={handleSaveBatches}
-        products={products}
-      />
-
 
       <Dialog open={categoryDialogOpen} onClose={handleCloseCategoryDialog} fullWidth maxWidth="sm">
         <DialogTitle>Add Category</DialogTitle>
@@ -755,6 +884,24 @@ const Stock = () => {
           </Button>
           <Button onClick={confirmDeleteProduct} color="primary">
             Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={imageDialogOpen} onClose={handleCloseImageDialog} maxWidth="sm" fullWidth>
+        <DialogTitle>Image Preview</DialogTitle>
+        <DialogContent>
+          {productImageUrl ? (
+            <img src={productImageUrl} alt="Product" style={{ width: '100%', maxHeight: '600px', objectFit: 'contain' }} />
+          ) : (
+            <Typography variant="body1">
+              No image available.
+            </Typography>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseImageDialog} color="primary">
+            Close
           </Button>
         </DialogActions>
       </Dialog>

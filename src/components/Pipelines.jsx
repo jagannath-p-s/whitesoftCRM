@@ -1,250 +1,189 @@
-import React, { useState, useEffect } from 'react';
-import { supabase } from '../supabaseClient';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
-  TextField, Button, IconButton, Tooltip, MenuItem,
-  Dialog, DialogActions, DialogContent, DialogTitle, 
-  Snackbar, Alert, FormControl,
-  Select, InputLabel, Box, Typography, Accordion, AccordionSummary,
-  AccordionDetails, Chip, FormControlLabel, Checkbox, Grid, Paper
+  Container,
+  Paper,
+  Typography,
+  Button,
+  IconButton,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemSecondaryAction,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  Box,
+  Snackbar,
+  Alert,
 } from '@mui/material';
-import {
-  Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon,
-  Equalizer as EqualizerIcon, ExpandMore as ExpandMoreIcon
-} from '@mui/icons-material';
+import { Delete, Edit, ExpandMore, Add } from '@mui/icons-material';
+import { styled } from '@mui/material/styles';
+import { supabase } from '../supabaseClient';
+
+const StyledAccordion = styled(Accordion)(({ theme }) => ({
+  marginBottom: theme.spacing(2),
+}));
+
+const StyledButton = styled(Button)(({ theme }) => ({
+  margin: theme.spacing(1),
+}));
 
 const Pipelines = () => {
   const [pipelines, setPipelines] = useState([]);
-  const [pipelineStages, setPipelineStages] = useState([]);
-  const [pipelineFields, setPipelineFields] = useState([]);
-  const [selectedPipeline, setSelectedPipeline] = useState('');
-  const [selectedStage, setSelectedStage] = useState('');
-  const [selectedField, setSelectedField] = useState(null);
-  const [dialogOpen, setDialogOpen] = useState('');
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
-  const [newPipelineName, setNewPipelineName] = useState('');
-  const [newStageName, setNewStageName] = useState('');
-  const [newFieldName, setNewFieldName] = useState('');
-  const [isFile, setIsFile] = useState(false);
+  const [stages, setStages] = useState([]);
+  const [fields, setFields] = useState([]);
+  const [openDialog, setOpenDialog] = useState(false);
+  const [currentPipeline, setCurrentPipeline] = useState(null);
+  const [currentStage, setCurrentStage] = useState(null);
+  const [currentField, setCurrentField] = useState(null);
+  const [dialogType, setDialogType] = useState('pipeline');
+  const [formData, setFormData] = useState({
+    name: '',
+    type: 'textfield',
+  });
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'success',
+  });
 
-  useEffect(() => {
-    fetchPipelines();
-    fetchPipelineStages();
-    fetchPipelineFields();
-  }, []);
-
-  const fetchPipelines = async () => {
+  const fetchPipelines = useCallback(async () => {
     const { data, error } = await supabase.from('pipelines').select('*');
     if (error) {
-      showSnackbar(`Error fetching pipelines: ${error.message}`, 'error');
+      showSnackbar('Error fetching pipelines', 'error');
     } else {
       setPipelines(data);
     }
-  };
+  }, []);
 
-  const fetchPipelineStages = async () => {
-    const { data, error } = await supabase.from('pipeline_stages').select('*');
+  const fetchStages = useCallback(async (pipelineId) => {
+    const { data, error } = await supabase
+      .from('pipeline_stages')
+      .select('*')
+      .eq('pipeline_id', pipelineId);
     if (error) {
-      showSnackbar(`Error fetching pipeline stages: ${error.message}`, 'error');
+      showSnackbar('Error fetching stages', 'error');
     } else {
-      setPipelineStages(data);
+      setStages(data);
     }
-  };
+  }, []);
 
-  const fetchPipelineFields = async () => {
-    const { data, error } = await supabase.from('pipeline_fields').select('*');
+  const fetchFields = useCallback(async (stageId) => {
+    const { data, error } = await supabase
+      .from('pipeline_fields')
+      .select('*')
+      .eq('stage_id', stageId);
     if (error) {
-      showSnackbar(`Error fetching pipeline fields: ${error.message}`, 'error');
+      showSnackbar('Error fetching fields', 'error');
     } else {
-      setPipelineFields(data);
+      setFields(data);
     }
-  };
+  }, []);
 
-  const handleOpenDialog = (type, pipelineId = '', stageId = '', field = null) => {
-    setSelectedPipeline(pipelineId);
-    setSelectedStage(stageId);
-    setSelectedField(field);
-    if (type === 'pipeline') {
-      setNewPipelineName(pipelineId ? pipelines.find(p => p.pipeline_id === pipelineId).pipeline_name : '');
-    } else if (type === 'stage') {
-      setNewStageName(stageId ? pipelineStages.find(s => s.stage_id === stageId).stage_name : '');
-    } else if (type === 'field') {
-      setNewFieldName(field ? field.field_name : '');
-      setIsFile(field ? field.is_file : false);
+  useEffect(() => {
+    fetchPipelines();
+  }, [fetchPipelines]);
+
+  useEffect(() => {
+    if (currentPipeline) {
+      fetchStages(currentPipeline.pipeline_id);
     }
-    setDialogOpen(type);
+  }, [currentPipeline, fetchStages]);
+
+  useEffect(() => {
+    if (currentStage) {
+      fetchFields(currentStage.stage_id);
+    }
+  }, [currentStage, fetchFields]);
+
+  const handleOpenDialog = (type, item = null) => {
+    setDialogType(type);
+    setFormData({
+      name: item?.name || '',
+      type: item?.type || 'textfield',
+    });
+    setOpenDialog(true);
+
+    if (item) {
+      if (type === 'pipeline') setCurrentPipeline(item);
+      else if (type === 'stage') setCurrentStage(item);
+      else if (type === 'field') setCurrentField(item);
+    }
   };
 
   const handleCloseDialog = () => {
-    setDialogOpen('');
-    setSelectedPipeline('');
-    setSelectedStage('');
-    setSelectedField(null);
-    setNewPipelineName('');
-    setNewStageName('');
-    setNewFieldName('');
-    setIsFile(false);
+    setOpenDialog(false);
+    setCurrentPipeline(null);
+    setCurrentStage(null);
+    setCurrentField(null);
+    setFormData({ name: '', type: 'textfield' });
   };
 
-  const handleAddPipeline = async () => {
-    const { error } = await supabase.from('pipelines').insert([{ pipeline_name: newPipelineName }]);
-    if (error) {
-      showSnackbar(`Error adding pipeline: ${error.message}`, 'error');
+  const handleFormSubmit = async () => {
+    const submitFunctions = {
+      pipeline: handlePipelineSubmit,
+      stage: handleStageSubmit,
+      field: handleFieldSubmit,
+    };
+
+    const result = await submitFunctions[dialogType]();
+
+    if (result.error) {
+      showSnackbar(`Error: ${result.error.message}`, 'error');
     } else {
-      showSnackbar('Pipeline added successfully', 'success');
-      fetchPipelines();
+      showSnackbar(`${dialogType} ${currentPipeline || currentStage || currentField ? 'updated' : 'added'} successfully`, 'success');
       handleCloseDialog();
+      if (dialogType === 'pipeline') fetchPipelines();
+      if (dialogType === 'stage' && currentPipeline) fetchStages(currentPipeline.pipeline_id);
+      if (dialogType === 'field' && currentStage) fetchFields(currentStage.stage_id);
     }
   };
 
-  const handleEditPipeline = async () => {
-    const { error } = await supabase
-      .from('pipelines')
-      .update({ pipeline_name: newPipelineName })
-      .eq('pipeline_id', selectedPipeline);
+  const handlePipelineSubmit = async () => {
+    const { pipeline_id } = currentPipeline || {};
+    return pipeline_id
+      ? await supabase.from('pipelines').update({ pipeline_name: formData.name }).eq('pipeline_id', pipeline_id)
+      : await supabase.from('pipelines').insert({ pipeline_name: formData.name });
+  };
 
-    if (error) {
-      showSnackbar(`Error editing pipeline: ${error.message}`, 'error');
+  const handleStageSubmit = async () => {
+    const { stage_id } = currentStage || {};
+    return stage_id
+      ? await supabase.from('pipeline_stages').update({ stage_name: formData.name }).eq('stage_id', stage_id)
+      : await supabase.from('pipeline_stages').insert({ stage_name: formData.name, pipeline_id: currentPipeline.pipeline_id });
+  };
+
+  const handleFieldSubmit = async () => {
+    const { field_id } = currentField || {};
+    return field_id
+      ? await supabase.from('pipeline_fields').update({ field_name: formData.name, field_type: formData.type }).eq('field_id', field_id)
+      : await supabase.from('pipeline_fields').insert({ field_name: formData.name, field_type: formData.type, stage_id: currentStage.stage_id });
+  };
+
+  const handleDelete = async (type, item) => {
+    const deleteOperations = {
+      pipeline: { table: 'pipelines', key: 'pipeline_id', refresh: fetchPipelines },
+      stage: { table: 'pipeline_stages', key: 'stage_id', refresh: () => fetchStages(currentPipeline.pipeline_id) },
+      field: { table: 'pipeline_fields', key: 'field_id', refresh: () => fetchFields(currentStage.stage_id) },
+    };
+
+    const { table, key, refresh } = deleteOperations[type];
+    const result = await supabase.from(table).delete().eq(key, item[key]);
+
+    if (result.error) {
+      showSnackbar(`Error deleting ${type}`, 'error');
     } else {
-      showSnackbar('Pipeline edited successfully', 'success');
-      fetchPipelines();
-      handleCloseDialog();
-    }
-  };
-
-  const handleAddStage = async () => {
-    const { error } = await supabase.from('pipeline_stages').insert([{ pipeline_id: selectedPipeline, stage_name: newStageName }]);
-    if (error) {
-      showSnackbar(`Error adding stage: ${error.message}`, 'error');
-    } else {
-      showSnackbar('Stage added successfully', 'success');
-      fetchPipelineStages();
-      handleCloseDialog();
-    }
-  };
-
-  const handleEditStage = async () => {
-    const { error } = await supabase
-      .from('pipeline_stages')
-      .update({ stage_name: newStageName })
-      .eq('stage_id', selectedStage);
-
-    if (error) {
-      showSnackbar(`Error editing stage: ${error.message}`, 'error');
-    } else {
-      showSnackbar('Stage edited successfully', 'success');
-      fetchPipelineStages();
-      handleCloseDialog();
-    }
-  };
-
-  const handleAddField = async () => {
-    const { error } = await supabase
-      .from('pipeline_fields')
-      .insert([{ stage_id: selectedStage, field_name: newFieldName, is_file: isFile }]);
-
-    if (error) {
-      showSnackbar(`Error adding field: ${error.message}`, 'error');
-    } else {
-      showSnackbar('Field added successfully', 'success');
-      fetchPipelineFields();
-      handleCloseDialog();
-    }
-  };
-
-  const handleEditField = async () => {
-    const { error } = await supabase
-      .from('pipeline_fields')
-      .update({ field_name: newFieldName, is_file: isFile })
-      .eq('field_id', selectedField);
-
-    if (error) {
-      showSnackbar(`Error editing field: ${error.message}`, 'error');
-    } else {
-      showSnackbar('Field edited successfully', 'success');
-      fetchPipelineFields();
-      handleCloseDialog();
-    }
-  };
-
-  const handleDeletePipeline = (pipeline_id) => {
-    setSelectedPipeline(pipeline_id);
-    setDeleteDialogOpen(true);
-  };
-
-  const handleDeleteStage = (stage_id) => {
-    setSelectedStage(stage_id);
-    setDeleteDialogOpen(true);
-  };
-
-  const handleDeleteField = (field_id) => {
-    setSelectedField(field_id);
-    setDeleteDialogOpen(true);
-  };
-
-  const deletePipelineStagesAndFields = async (pipelineId) => {
-    const stages = await supabase.from('pipeline_stages').select('stage_id').eq('pipeline_id', pipelineId);
-    if (stages.error) {
-      showSnackbar(`Error fetching stages: ${stages.error.message}`, 'error');
-      return false;
-    }
-
-    for (const stage of stages.data) {
-      const { error: deleteFieldsError } = await supabase.from('pipeline_fields').delete().eq('stage_id', stage.stage_id);
-      if (deleteFieldsError) {
-        showSnackbar(`Error deleting fields: ${deleteFieldsError.message}`, 'error');
-        return false;
-      }
-
-      const { error: deleteStageError } = await supabase.from('pipeline_stages').delete().eq('stage_id', stage.stage_id);
-      if (deleteStageError) {
-        showSnackbar(`Error deleting stage: ${deleteStageError.message}`, 'error');
-        return false;
-      }
-    }
-
-    return true;
-  };
-
-  const confirmDeletePipeline = async () => {
-    const success = await deletePipelineStagesAndFields(selectedPipeline);
-    if (!success) return;
-
-    const { error } = await supabase.from('pipelines').delete().eq('pipeline_id', selectedPipeline);
-    if (error) {
-      showSnackbar(`Error deleting pipeline: ${error.message}`, 'error');
-    } else {
-      showSnackbar('Pipeline deleted successfully', 'success');
-      fetchPipelines();
-      setDeleteDialogOpen(false);
-    }
-  };
-
-  const confirmDeleteStage = async () => {
-    const { error } = await supabase.from('pipeline_fields').delete().eq('stage_id', selectedStage);
-    if (error) {
-      showSnackbar(`Error deleting fields: ${error.message}`, 'error');
-      return;
-    }
-
-    const { error: stageError } = await supabase.from('pipeline_stages').delete().eq('stage_id', selectedStage);
-    if (stageError) {
-      showSnackbar(`Error deleting stage: ${stageError.message}`, 'error');
-    } else {
-      showSnackbar('Stage deleted successfully', 'success');
-      fetchPipelineStages();
-      setDeleteDialogOpen(false);
-    }
-  };
-
-  const confirmDeleteField = async () => {
-    const { error } = await supabase.from('pipeline_fields').delete().eq('field_id', selectedField);
-    if (error) {
-      showSnackbar(`Error deleting field: ${error.message}`, 'error');
-    } else {
-      showSnackbar('Field deleted successfully', 'success');
-      fetchPipelineFields();
-      setDeleteDialogOpen(false);
+      showSnackbar(`${type} deleted successfully`, 'success');
+      refresh();
     }
   };
 
@@ -253,273 +192,158 @@ const Pipelines = () => {
   };
 
   const handleCloseSnackbar = (event, reason) => {
-    if (reason === 'clickaway') {
-      return;
-    }
-    setSnackbar({ ...snackbar, open: false });
+    if (reason === 'clickaway') return;
+    setSnackbar((prev) => ({ ...prev, open: false }));
   };
 
-  return (
-    <div className="flex flex-col min-h-screen bg-gray-100">
-      <div className="bg-white shadow-md ">
-        <div className="max-w-7xl  px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-3">
-            <div className="flex items-center">
-              <EqualizerIcon className="text-blue-500" style={{ fontSize: '1.75rem' }} />
-              <h1 className="text-xl font-semibold">Dashboard</h1>
-            </div>
-            <Tooltip title="Add Pipeline">
-              <IconButton onClick={() => handleOpenDialog('pipeline')} style={{ backgroundColor: '#e3f2fd', color: '#1e88e5', borderRadius: '12px' }}>
-                <AddIcon style={{ fontSize: '1.75rem' }} />
-              </IconButton>
-            </Tooltip>
-          </div>
-        </div>
-      </div>
+  const renderPipelineContent = (pipeline) => (
+    <>
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+        <Box>
+          <IconButton onClick={() => handleOpenDialog('pipeline', pipeline)} size="small">
+            <Edit />
+          </IconButton>
+          <IconButton onClick={() => handleDelete('pipeline', pipeline)} size="small">
+            <Delete />
+          </IconButton>
+        </Box>
+        <StyledButton
+          variant="outlined"
+          startIcon={<Add />}
+          onClick={() => {
+            setCurrentPipeline(pipeline);
+            handleOpenDialog('stage');
+          }}
+        >
+          Add Stage
+        </StyledButton>
+      </Box>
+      <List>
+        {stages
+          .filter((stage) => stage.pipeline_id === pipeline.pipeline_id)
+          .map((stage) => renderStageAccordion(stage))}
+      </List>
+    </>
+  );
 
-      <div className="flex-grow p-4 space-y-4 overflow-y-auto">
-       
-        <Grid container spacing={2}>
-          {pipelines.map((pipeline) => (
-            <Grid item xs={12} md={6} key={pipeline.pipeline_id}>
-              <Accordion>
-                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                  <Box display="flex" alignItems="center" width="100%">
-                    <Typography flexGrow={1}>{pipeline.pipeline_name}</Typography>
-                    <Box display="flex" alignItems="center" ml={2}>
-                      <Tooltip title="Edit Pipeline">
-                        <IconButton onClick={() => handleOpenDialog('pipeline', pipeline.pipeline_id)} size="small">
-                          <EditIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Delete Pipeline">
-                        <IconButton onClick={() => handleDeletePipeline(pipeline.pipeline_id)} size="small">
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    </Box>
-                  </Box>
-                </AccordionSummary>
-                <AccordionDetails>
-                  <Box display="flex" justifyContent="flex-end" mb={1}>
-                    <Tooltip title="Add Stage">
-                      <IconButton onClick={() => handleOpenDialog('stage', pipeline.pipeline_id)} size="small" style={{ backgroundColor: '#e3f2fd', color: '#1e88e5', borderRadius: '12px' }}>
-                        <AddIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                  </Box>
-                  {pipelineStages
-                    .filter((stage) => stage.pipeline_id === pipeline.pipeline_id)
-                    .map((stage) => (
-                      <Accordion key={stage.stage_id}>
-                        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                          <Box display="flex" alignItems="center" width="100%">
-                            <Typography flexGrow={1}>{stage.stage_name}</Typography>
-                            <Box display="flex" alignItems="center" ml={2}>
-                              <Tooltip title="Edit Stage">
-                                <IconButton onClick={() => handleOpenDialog('stage', stage.stage_id)} size="small">
-                                  <EditIcon fontSize="small" />
-                                </IconButton>
-                              </Tooltip>
-                              <Tooltip title="Delete Stage">
-                                <IconButton onClick={() => handleDeleteStage(stage.stage_id)} size="small">
-                                  <DeleteIcon fontSize="small" />
-                                </IconButton>
-                              </Tooltip>
-                            </Box>
-                          </Box>
-                        </AccordionSummary>
-                        <AccordionDetails>
-                          <Box display="flex" justifyContent="flex-end" mb={1}>
-                            <Tooltip title="Add Field">
-                              <IconButton onClick={() => handleOpenDialog('field', stage.stage_id, null)} size="small" style={{ backgroundColor: '#e3f2fd', color: '#1e88e5', borderRadius: '12px' }}>
-                                <AddIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                          </Box>
-                          {pipelineFields
-                            .filter((field) => field.stage_id === stage.stage_id)
-                            .map((field) => (
-                              <Grid container alignItems="center" spacing={2} key={field.field_id} mb={1}>
-                                <Grid item xs={6}>
-                                  <Typography>{field.field_name}</Typography>
-                                </Grid>
-                                <Grid item xs={2}>
-                                  <Chip
-                                    label={field.is_file ? 'File' : 'Text'}
-                                    color={field.is_file ? 'primary' : 'default'}
-                                    size="small"
-                                  />
-                                </Grid>
-                                <Grid item xs={4}>
-                                  <Tooltip title="Edit Field">
-                                    <IconButton onClick={() => handleOpenDialog('field', field.stage_id, null, field)} size="small">
-                                      <EditIcon fontSize="small" />
-                                    </IconButton>
-                                  </Tooltip>
-                                  <Tooltip title="Delete Field">
-                                    <IconButton onClick={() => handleDeleteField(field.field_id)} size="small">
-                                      <DeleteIcon fontSize="small" />
-                                    </IconButton>
-                                  </Tooltip>
-                                </Grid>
-                              </Grid>
-                            ))}
-                        </AccordionDetails>
-                      </Accordion>
-                    ))}
-                </AccordionDetails>
-              </Accordion>
-            </Grid>
-          ))}
-        </Grid>
-      </div>
-
-      <Dialog open={dialogOpen === 'pipeline'} onClose={handleCloseDialog} fullWidth maxWidth="sm">
-        <DialogTitle>{selectedPipeline ? 'Edit Pipeline' : 'Add Pipeline'}</DialogTitle>
-        <DialogContent>
-          <Box sx={{ mt: 2 }}>
-            <TextField
-              label="Pipeline Name"
-              variant="outlined"
-              fullWidth
-              margin="dense"
-              value={newPipelineName}
-              onChange={(e) => setNewPipelineName(e.target.value)}
-            />
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseDialog} color="primary">
-            Cancel
-          </Button>
-          <Button onClick={selectedPipeline ? handleEditPipeline : handleAddPipeline} color="primary">
-            Save
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      <Dialog open={dialogOpen === 'stage'} onClose={handleCloseDialog} fullWidth maxWidth="sm">
-        <DialogTitle>{selectedStage ? 'Edit Stage' : 'Add Stage'}</DialogTitle>
-        <DialogContent>
-          <Box sx={{ mt: 2 }}>
-            <FormControl fullWidth margin="dense">
-              <InputLabel>Pipeline</InputLabel>
-              <Select
-                value={selectedPipeline}
-                onChange={(e) => setSelectedPipeline(e.target.value)}
-                label="Pipeline"
-              >
-                {pipelines.map((pipeline) => (
-                  <MenuItem key={pipeline.pipeline_id} value={pipeline.pipeline_id}>
-                    {pipeline.pipeline_name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <TextField
-              label="Stage Name"
-              variant="outlined"
-              fullWidth
-              margin="dense"
-              value={newStageName}
-              onChange={(e) => setNewStageName(e.target.value)}
-            />
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseDialog} color="primary">
-            Cancel
-          </Button>
-          <Button onClick={selectedStage ? handleEditStage : handleAddStage} color="primary">
-            Save
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      <Dialog open={dialogOpen === 'field'} onClose={handleCloseDialog} fullWidth maxWidth="sm">
-        <DialogTitle>{selectedField ? 'Edit Field' : 'Add Field'}</DialogTitle>
-        <DialogContent>
-          <Box sx={{ mt: 2 }}>
-            <FormControl fullWidth margin="dense">
-              <InputLabel>Stage</InputLabel>
-              <Select
-                value={selectedStage}
-                onChange={(e) => setSelectedStage(e.target.value)}
-                label="Stage"
-              >
-                {pipelineStages.map((stage) => (
-                  <MenuItem key={stage.stage_id} value={stage.stage_id}>
-                    {stage.stage_name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <TextField
-              label="Field Name"
-              variant="outlined"
-              fullWidth
-              margin="dense"
-              value={newFieldName}
-              onChange={(e) => setNewFieldName(e.target.value)}
-            />
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={isFile}
-                  onChange={(e) => setIsFile(e.target.checked)}
-                  name="isFile"
-                />
-              }
-              label="Is File"
-            />
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseDialog} color="primary">
-            Cancel
-          </Button>
-          <Button onClick={selectedField ? handleEditField : handleAddField} color="primary">
-            Save
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)} fullWidth maxWidth="sm">
-        <DialogTitle>Confirm Delete</DialogTitle>
-        <DialogContent>
-          <Box sx={{ mt: 2 }}>
-            <Typography>Are you sure you want to delete this item?</Typography>
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDeleteDialogOpen(false)} color="primary">
-            Cancel
-          </Button>
-          <Button
-            onClick={() => {
-              if (selectedPipeline) confirmDeletePipeline();
-              else if (selectedStage) confirmDeleteStage();
-              else if (selectedField) confirmDeleteField();
-            }}
-            color="primary"
-          >
-            Delete
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={6000}
-        onClose={handleCloseSnackbar}
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+  const renderStageAccordion = (stage) => (
+    <StyledAccordion key={stage.stage_id} expanded={currentStage?.stage_id === stage.stage_id}>
+      <AccordionSummary
+        expandIcon={<ExpandMore />}
+        onClick={() => setCurrentStage(currentStage?.stage_id === stage.stage_id ? null : stage)}
       >
+        <Typography variant="subtitle1">{stage.stage_name}</Typography>
+      </AccordionSummary>
+      <AccordionDetails>
+        <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+          <Box>
+            <IconButton onClick={() => handleOpenDialog('stage', stage)} size="small">
+              <Edit />
+            </IconButton>
+            <IconButton onClick={() => handleDelete('stage', stage)} size="small">
+              <Delete />
+            </IconButton>
+          </Box>
+          <StyledButton
+            variant="outlined"
+            startIcon={<Add />}
+            onClick={() => {
+              setCurrentStage(stage);
+              handleOpenDialog('field');
+            }}
+          >
+            Add Field
+          </StyledButton>
+        </Box>
+        <List>
+          {fields
+            .filter((field) => field.stage_id === stage.stage_id)
+            .map((field) => renderFieldListItem(field))}
+        </List>
+      </AccordionDetails>
+    </StyledAccordion>
+  );
+
+  const renderFieldListItem = (field) => (
+    <ListItem key={field.field_id}>
+      <ListItemText primary={field.field_name} secondary={`Type: ${field.field_type}`} />
+      <ListItemSecondaryAction>
+        <IconButton onClick={() => handleOpenDialog('field', field)} size="small">
+          <Edit />
+        </IconButton>
+        <IconButton onClick={() => handleDelete('field', field)} size="small">
+          <Delete />
+        </IconButton>
+      </ListItemSecondaryAction>
+    </ListItem>
+  );
+
+  return (
+    <Container maxWidth="md">
+      <Paper elevation={3} sx={{ p: 3, mt: 3 }}>
+        <Typography variant="h4" gutterBottom>
+          Pipelines
+        </Typography>
+        <List>
+          {pipelines.map((pipeline) => (
+            <StyledAccordion key={pipeline.pipeline_id} expanded={currentPipeline?.pipeline_id === pipeline.pipeline_id}>
+              <AccordionSummary
+                expandIcon={<ExpandMore />}
+                onClick={() => setCurrentPipeline(currentPipeline?.pipeline_id === pipeline.pipeline_id ? null : pipeline)}
+              >
+                <Typography variant="h6">{pipeline.pipeline_name}</Typography>
+              </AccordionSummary>
+              <AccordionDetails>
+                {renderPipelineContent(pipeline)}
+              </AccordionDetails>
+            </StyledAccordion>
+          ))}
+        </List>
+        <Box mt={2}>
+          <Button variant="contained" startIcon={<Add />} onClick={() => handleOpenDialog('pipeline')}>
+            Add Pipeline
+          </Button>
+        </Box>
+      </Paper>
+
+      <Dialog open={openDialog} onClose={handleCloseDialog}>
+        <DialogTitle>{currentPipeline || currentStage || currentField ? 'Edit' : 'Add'} {dialogType}</DialogTitle>
+        <DialogContent>
+          <TextField
+            label="Name"
+            fullWidth
+            margin="normal"
+            value={formData.name}
+            onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
+          />
+          {dialogType === 'field' && (
+            <FormControl fullWidth margin="normal">
+              <InputLabel>Type</InputLabel>
+              <Select
+                value={formData.type}
+                onChange={(e) => setFormData((prev) => ({ ...prev, type: e.target.value }))}
+              >
+                <MenuItem value="textfield">Textfield</MenuItem>
+                <MenuItem value="checkbox">Checkbox</MenuItem>
+                <MenuItem value="file">File</MenuItem>
+              </Select>
+            </FormControl>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseDialog}>Cancel</Button>
+          <Button onClick={handleFormSubmit} variant="contained" color="primary">
+            Submit
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Snackbar open={snackbar.open} autoHideDuration={6000} onClose={handleCloseSnackbar}>
         <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} sx={{ width: '100%' }}>
           {snackbar.message}
         </Alert>
       </Snackbar>
-    </div>
+    </Container>
   );
 };
 

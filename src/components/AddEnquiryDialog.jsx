@@ -38,6 +38,8 @@ const AddEnquiryDialog = ({
   handlePageChange,
   totalEstimate,
   ITEMS_PER_PAGE,
+  totalProducts,
+  currentUserId,
 }) => {
   return (
     <Dialog open={dialogOpen} onClose={handleDialogClose} maxWidth="md" fullWidth>
@@ -125,7 +127,7 @@ const AddEnquiryDialog = ({
           <InputLabel>Assigned To</InputLabel>
           <Select
             name="assignedto"
-            value={enquiryData.assignedto || ''}
+            value={enquiryData.assignedto || currentUserId}
             onChange={handleEnquiryDataChange}
             label="Assigned To"
           >
@@ -250,7 +252,7 @@ const AddEnquiryDialog = ({
             </List>
             <Box sx={{ display: 'flex', justifyContent: 'center', my: 2 }}>
               <Pagination
-                count={Math.ceil(products.length / ITEMS_PER_PAGE)}
+                count={Math.ceil(totalProducts / ITEMS_PER_PAGE)}
                 page={page}
                 onChange={handlePageChange}
                 color="primary"

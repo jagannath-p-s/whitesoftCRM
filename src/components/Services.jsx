@@ -1,133 +1,227 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import {
+  Box, Button, TextField, Typography, IconButton, Grid, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, FormControl, InputLabel, Select, MenuItem, Chip
+} from '@mui/material';
+import { Add as AddIcon, Search as SearchIcon, Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material';
+import { styled } from '@mui/material/styles';
+import { supabase } from '../supabaseClient'; // Adjust the path as needed
+import ServiceEnquiryDialog from './ServiceEnquiryDialog'; // Renamed from AddServiceEnquiryDialog
+
+const StyledTableCell = styled(TableCell)(({ theme }) => ({
+  backgroundColor: theme.palette.primary.main,
+  color: theme.palette.common.white,
+}));
+
+const StyledTableRow = styled(TableRow)(({ theme }) => ({
+  '&:nth-of-type(odd)': {
+    backgroundColor: theme.palette.action.hover,
+  },
+}));
 
 const Services = () => {
-  const [formData, setFormData] = useState({
-    date: '',
-    jobCardNo: '',
-    customerDetails: '',
-    machineType: '',
-    complaints: [''],
-    parts: [{ partName: '', partNumber: '', qty: '', rate: '', amount: '' }],
-    technicianName: '',
-    charges: { oil: '', petrol: '', labour: '' },
-    totalAmount: '',
-    repairDate: '',
-  });
+  const [enquiries, setEnquiries] = useState([]);
+  const [filteredEnquiries, setFilteredEnquiries] = useState([]);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [technicianFilter, setTechnicianFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [editingEnquiry, setEditingEnquiry] = useState(null);
 
-  const handleChange = (e, index, field) => {
-    const { name, value } = e.target;
-    setFormData(prevData => {
-      if (field) {
-        const newArray = [...prevData[name]];
-        newArray[index] = { ...newArray[index], [field]: value };
-        return { ...prevData, [name]: newArray };
-      } else if (name in prevData.charges) {
-        return { ...prevData, charges: { ...prevData.charges, [name]: value } };
+  useEffect(() => {
+    fetchEnquiries();
+  }, []);
+
+  useEffect(() => {
+    filterEnquiries();
+  }, [searchTerm, technicianFilter, statusFilter, enquiries]);
+
+  const fetchEnquiries = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('service_enquiries')
+        .select('*, service_enquiry_parts(*)');
+      if (error) throw error;
+      setEnquiries(data);
+      setFilteredEnquiries(data);
+    } catch (error) {
+      setError(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filterEnquiries = () => {
+    let filtered = enquiries;
+    if (searchTerm) {
+      filtered = filtered.filter(enquiry =>
+        enquiry.customer_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        enquiry.customer_mobile.includes(searchTerm) ||
+        enquiry.job_card_no.includes(searchTerm)
+      );
+    }
+    if (technicianFilter) {
+      filtered = filtered.filter(enquiry => enquiry.technician_name === technicianFilter);
+    }
+    if (statusFilter) {
+      filtered = filtered.filter(enquiry => enquiry.status === statusFilter);
+    }
+    setFilteredEnquiries(filtered);
+  };
+
+  const handleSearchChange = (e) => {
+    setSearchTerm(e.target.value);
+  };
+
+  const handleTechnicianFilterChange = (e) => {
+    setTechnicianFilter(e.target.value);
+  };
+
+  const handleStatusFilterChange = (e) => {
+    setStatusFilter(e.target.value);
+  };
+
+  const handleAddEnquiryClick = () => {
+    setEditingEnquiry(null);
+    setDialogOpen(true);
+  };
+
+  const handleEditEnquiry = (enquiry) => {
+    setEditingEnquiry(enquiry);
+    setDialogOpen(true);
+  };
+
+  const handleDialogClose = () => {
+    setDialogOpen(false);
+    setEditingEnquiry(null);
+  };
+
+  const handleFormSubmit = () => {
+    fetchEnquiries();
+    handleDialogClose();
+  };
+
+  const handleDeleteEnquiry = async (id) => {
+    if (window.confirm('Are you sure you want to delete this enquiry?')) {
+      try {
+        const { error } = await supabase
+          .from('service_enquiries')
+          .delete()
+          .eq('id', id);
+        if (error) throw error;
+        fetchEnquiries();
+      } catch (error) {
+        console.error('Error deleting enquiry:', error);
       }
-      return { ...prevData, [name]: value };
-    });
+    }
   };
 
-  const addItem = (type) => {
-    setFormData(prevData => ({
-      ...prevData,
-      [type]: type === 'parts' 
-        ? [...prevData[type], { partName: '', partNumber: '', qty: '', rate: '', amount: '' }]
-        : [...prevData[type], '']
-    }));
-  };
-
-  const removeItem = (type, index) => {
-    setFormData(prevData => ({
-      ...prevData,
-      [type]: prevData[type].filter((_, i) => i !== index)
-    }));
-  };
-
-  const renderInputField = (label, name, type = 'text') => (
-    <div className="flex flex-col">
-      <label>{label}:</label>
-      <input
-        type={type}
-        name={name}
-        value={formData[name]}
-        onChange={handleChange}
-        className="p-2 border rounded"
-      />
-    </div>
-  );
-
-  const renderTextArea = (label, name) => (
-    <div className="flex flex-col">
-      <label>{label}:</label>
-      <textarea
-        name={name}
-        value={formData[name]}
-        onChange={handleChange}
-        className="p-2 border rounded"
-      ></textarea>
-    </div>
-  );
+  if (loading) return <Typography>Loading...</Typography>;
+  if (error) return <Typography color="error">Error: {error}</Typography>;
 
   return (
-    <div className="p-8 bg-gray-100">
-      <form className="space-y-4">
-        <div className="grid grid-cols-2 gap-4">
-          {renderInputField('Date', 'date', 'date')}
-          {renderInputField('Job Card No', 'jobCardNo')}
-        </div>
-
-        {renderTextArea('Customer Details', 'customerDetails')}
-        {renderInputField('Machine Type', 'machineType')}
-
-        <div>
-          <label>Complaints:</label>
-          {formData.complaints.map((complaint, index) => (
-            <div key={index} className="flex items-center mt-1">
-              <input
-                type="text"
-                value={complaint}
-                onChange={(e) => handleChange(e, index, 'complaints')}
-                className="flex-grow p-2 border rounded"
-              />
-              <button type="button" onClick={() => removeItem('complaints', index)} className="ml-2 px-2 py-1 bg-red-500 text-white rounded">Remove</button>
-            </div>
-          ))}
-          <button type="button" onClick={() => addItem('complaints')} className="mt-2 px-2 py-1 bg-green-500 text-white rounded">Add Complaint</button>
-        </div>
-
-        <div>
-          <label>Parts:</label>
-          {formData.parts.map((part, index) => (
-            <div key={index} className="grid grid-cols-5 gap-2 mt-1">
-              {Object.keys(part).map(field => (
-                <input
-                  key={field}
-                  type={field === 'qty' || field === 'rate' || field === 'amount' ? 'number' : 'text'}
-                  value={part[field]}
-                  onChange={(e) => handleChange(e, index, field)}
-                  placeholder={field.charAt(0).toUpperCase() + field.slice(1)}
-                  className="p-2 border rounded"
-                />
+    <Box sx={{ maxWidth: 1200, margin: 'auto', p: 3 }}>
+      <Typography variant="h4" sx={{ mb: 3 }}>
+        Service Enquiries
+      </Typography>
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        <Grid item xs={12} sm={4}>
+          <TextField
+            label="Search"
+            variant="outlined"
+            fullWidth
+            value={searchTerm}
+            onChange={handleSearchChange}
+            InputProps={{
+              endAdornment: <SearchIcon />
+            }}
+          />
+        </Grid>
+        <Grid item xs={12} sm={4}>
+          <FormControl fullWidth variant="outlined">
+            <InputLabel>Technician</InputLabel>
+            <Select
+              value={technicianFilter}
+              onChange={handleTechnicianFilterChange}
+              label="Technician"
+            >
+              <MenuItem value=""><em>None</em></MenuItem>
+              {Array.from(new Set(enquiries.map(e => e.technician_name))).map(tech => (
+                <MenuItem key={tech} value={tech}>{tech}</MenuItem>
               ))}
-              <button type="button" onClick={() => removeItem('parts', index)} className="px-2 py-1 bg-red-500 text-white rounded">Remove</button>
-            </div>
-          ))}
-          <button type="button" onClick={() => addItem('parts')} className="mt-2 px-2 py-1 bg-green-500 text-white rounded">Add Part</button>
-        </div>
+            </Select>
+          </FormControl>
+        </Grid>
+        <Grid item xs={12} sm={4}>
+          <FormControl fullWidth variant="outlined">
+            <InputLabel>Status</InputLabel>
+            <Select
+              value={statusFilter}
+              onChange={handleStatusFilterChange}
+              label="Status"
+            >
+              <MenuItem value=""><em>None</em></MenuItem>
+              <MenuItem value="started">Started</MenuItem>
+              <MenuItem value="ongoing">Ongoing</MenuItem>
+              <MenuItem value="paused">Paused</MenuItem>
+              <MenuItem value="paused due to parts unavailability">Paused due to Parts Unavailability</MenuItem>
+              <MenuItem value="completed">Completed</MenuItem>
+            </Select>
+          </FormControl>
+        </Grid>
+      </Grid>
+      <TableContainer component={Paper}>
+        <Table>
+          <TableHead>
+            <TableRow>
+              <StyledTableCell>Date</StyledTableCell>
+              <StyledTableCell>Job Card No</StyledTableCell>
+              <StyledTableCell>Customer Name</StyledTableCell>
+              <StyledTableCell>Customer Mobile</StyledTableCell>
+              <StyledTableCell>Technician</StyledTableCell>
+              <StyledTableCell>Total Amount</StyledTableCell>
+              <StyledTableCell>Status</StyledTableCell>
+              <StyledTableCell>Actions</StyledTableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {filteredEnquiries.map(enquiry => (
+              <StyledTableRow key={enquiry.id}>
+                <TableCell>{new Date(enquiry.date).toLocaleDateString()}</TableCell>
+                <TableCell>{enquiry.job_card_no}</TableCell>
+                <TableCell>{enquiry.customer_name}</TableCell>
+                <TableCell>{enquiry.customer_mobile}</TableCell>
+                <TableCell>{enquiry.technician_name}</TableCell>
+                <TableCell>₹{enquiry.total_amount.toFixed(2)}</TableCell>
+                <TableCell>
+                  <Chip 
+                    label={enquiry.status} 
+                    color={enquiry.status === 'completed' ? 'success' : enquiry.status.includes('paused') ? 'warning' : 'primary'}
+                  />
+                </TableCell>
+                <TableCell>
+                  <IconButton onClick={() => handleEditEnquiry(enquiry)} color="primary">
+                    <EditIcon />
+                  </IconButton>
+                  <IconButton onClick={() => handleDeleteEnquiry(enquiry.id)} color="error">
+                    <DeleteIcon />
+                  </IconButton>
+                </TableCell>
+              </StyledTableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
 
-        {renderInputField('Name of Technician', 'technicianName')}
-
-        <div className="grid grid-cols-3 gap-4">
-          {Object.keys(formData.charges).map(charge => (
-            renderInputField(charge.charAt(0).toUpperCase() + charge.slice(1) + ' Charge', charge, 'number')
-          ))}
-        </div>
-
-        {renderInputField('Total Amount', 'totalAmount', 'number')}
-        {renderInputField('Date of Repair', 'repairDate', 'date')}
-      </form>
-    </div>
+      <ServiceEnquiryDialog
+        dialogOpen={dialogOpen}
+        handleDialogClose={handleDialogClose}
+        handleFormSubmit={handleFormSubmit}
+        editingEnquiry={editingEnquiry}
+      />
+    </Box>
   );
 };
 

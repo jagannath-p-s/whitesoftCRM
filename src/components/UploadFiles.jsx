@@ -48,9 +48,11 @@ const UploadFiles = () => {
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [fileName, setFileName] = useState('');
   const [accessControl, setAccessControl] = useState({
-    staff_access: false,
+    admin_access: false,
     manager_access: false,
+    salesperson_access: false,
     service_access: false,
+    accounts_access: false,
   });
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [fileDialogOpen, setFileDialogOpen] = useState(false);
@@ -119,6 +121,7 @@ const UploadFiles = () => {
 
   const handleOpenUploadDialog = () => {
     setUploadDialogOpen(true);
+    setDefaultAccessControl();
   };
 
   const handleCloseUploadDialog = () => {
@@ -126,9 +129,11 @@ const UploadFiles = () => {
     setSelectedFiles([]);
     setFileName('');
     setAccessControl({
-      staff_access: false,
+      admin_access: false,
       manager_access: false,
+      salesperson_access: false,
       service_access: false,
+      accounts_access: false,
     });
   };
 
@@ -143,6 +148,43 @@ const UploadFiles = () => {
   const handleAccessControlChange = (event) => {
     const { name, checked } = event.target;
     setAccessControl({ ...accessControl, [name]: checked });
+  };
+
+  const setDefaultAccessControl = () => {
+    const user = JSON.parse(localStorage.getItem('user'));
+    if (!user) return;
+
+    let newAccessControl = {
+      admin_access: false,
+      manager_access: false,
+      salesperson_access: false,
+      service_access: false,
+      accounts_access: false,
+    };
+
+    if (user.role === 'Admin') {
+      newAccessControl = {
+        admin_access: true,
+        manager_access: true,
+        salesperson_access: true,
+        service_access: true,
+        accounts_access: true,
+      };
+    } else if (user.role === 'Manager') {
+      newAccessControl = {
+        manager_access: true,
+        salesperson_access: true,
+        service_access: true,
+      };
+    } else if (user.role === 'Service') {
+      newAccessControl.service_access = true;
+    } else if (user.role === 'Accounts') {
+      newAccessControl.accounts_access = true;
+    } else if (user.role === 'Salesperson') {
+      newAccessControl.salesperson_access = true;
+    }
+
+    setAccessControl(newAccessControl);
   };
 
   const handleFileUpload = async () => {
@@ -171,6 +213,8 @@ const UploadFiles = () => {
             file_path: uniqueFileName,
             uploaded_by: user.id,
             ...accessControl,
+            file_size: file.size,
+            file_type: file.type,
           },
         ]);
 
@@ -383,12 +427,12 @@ const UploadFiles = () => {
             <FormControlLabel
               control={
                 <Checkbox
-                  checked={accessControl.staff_access}
+                  checked={accessControl.admin_access}
                   onChange={handleAccessControlChange}
-                  name="staff_access"
+                  name="admin_access"
                 />
               }
-              label="Staff Access"
+              label="Admin Access"
             />
             <FormControlLabel
               control={
@@ -403,12 +447,32 @@ const UploadFiles = () => {
             <FormControlLabel
               control={
                 <Checkbox
+                  checked={accessControl.salesperson_access}
+                  onChange={handleAccessControlChange}
+                  name="salesperson_access"
+                />
+              }
+              label="Salesperson Access"
+            />
+            <FormControlLabel
+              control={
+                <Checkbox
                   checked={accessControl.service_access}
                   onChange={handleAccessControlChange}
                   name="service_access"
                 />
               }
               label="Service Access"
+            />
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={accessControl.accounts_access}
+                  onChange={handleAccessControlChange}
+                  name="accounts_access"
+                />
+              }
+              label="Accounts Access"
             />
           </FormGroup>
         </DialogContent>
