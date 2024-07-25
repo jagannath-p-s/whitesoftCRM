@@ -122,7 +122,7 @@ const HomePage = () => {
   }, [activeComponent]);
 
   const navItems = [
-    { icon: <PeopleOutlineIcon />, tooltip: "Contacts", component: 'Contacts', permission: 'can_edit_enquiries' },
+    // { icon: <PeopleOutlineIcon />, tooltip: "Contacts", component: 'Contacts', permission: 'can_edit_enquiries' },
     { icon: <ShoppingBagOutlinedIcon />, tooltip: "Sales", component: 'Sales', permission: 'can_edit_sales' },
     { icon: <EventNoteIcon />, tooltip: "Activities", component: 'Activities' },
     { icon: <EqualizerIcon />, tooltip: "Dashboard", component: 'Dashboard', permission: 'can_see_performance' },
@@ -138,8 +138,8 @@ const HomePage = () => {
     if (!user) return null;
 
     switch (activeComponent) {
-      case 'Contacts':
-        return user.can_edit_enquiries ? <Contacts /> : null;
+      // case 'Contacts':
+      //   return user.can_edit_enquiries ? <Contacts /> : null;
       case 'Sales':
         return user.can_edit_sales ? <Sales /> : null;
       case 'Activities':

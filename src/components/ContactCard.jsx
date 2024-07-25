@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Tooltip from '@mui/material/Tooltip';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
@@ -12,56 +12,88 @@ import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
-import AddTaskDialog from './AddTaskDialog'; // Ensure this path is correct
+import { supabase } from '../supabaseClient';
+import AddTaskDialog from './AddTaskDialog';
+import PipelineFormJSON from './PipelineFormJSON';
+import TextField from '@mui/material/TextField';
+import Select from '@mui/material/Select';
+import MenuItem from '@mui/material/MenuItem';
+import FormControl from '@mui/material/FormControl';
+import InputLabel from '@mui/material/InputLabel';
 
 const ContactCard = ({ contact, user, color, visibleFields }) => {
   const [open, setOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const [addTaskOpen, setAddTaskOpen] = useState(false);
+  const [pipelines, setPipelines] = useState([]);
+  const [selectedPipeline, setSelectedPipeline] = useState(contact?.pipeline_id || '');
+  const [error, setError] = useState(null);
 
   const userInitial = user?.username ? user.username.charAt(0).toUpperCase() : 'J';
   const username = user?.username ? user.username : 'Unknown User';
 
-  const handleInitialClick = () => {
-    setOpen(true);
+  useEffect(() => {
+    fetchPipelines();
+  }, []);
+
+  const fetchPipelines = async () => {
+    try {
+      const { data, error } = await supabase.from('pipelines').select('*');
+      if (error) throw error;
+      setPipelines(data || []);
+    } catch (error) {
+      console.error('Error fetching pipelines:', error);
+      setError('Failed to fetch pipelines. Please try again later.');
+    }
   };
 
-  const handleClose = () => {
-    setOpen(false);
+  const handleInitialClick = () => setOpen(true);
+  const handleClose = () => setOpen(false);
+  const handleEditClick = () => setEditOpen(true);
+  const handleEditClose = () => setEditOpen(false);
+  const handleAddClick = () => setAddTaskOpen(true);
+  const handleAddTaskClose = () => setAddTaskOpen(false);
+
+  const handlePipelineChange = (event) => {
+    setSelectedPipeline(event.target.value);
   };
 
-  const handleAddClick = () => {
-    setAddTaskOpen(true);
-  };
-
-  const handleAddTaskClose = () => {
-    setAddTaskOpen(false);
+  const handleSave = async () => {
+    try {
+      const { error } = await supabase
+        .from('enquiries')
+        .update({ pipeline_id: selectedPipeline })
+        .eq('id', contact.id);
+      if (error) throw error;
+      setEditOpen(false);
+    } catch (error) {
+      console.error('Error updating pipeline:', error);
+      setError('Failed to update pipeline. Please try again later.');
+    }
   };
 
   const getTextColorClass = (color) => {
-    switch (color) {
-      case 'blue':
-        return 'text-blue-600';
-      case 'red':
-        return 'text-red-600';
-      case 'green':
-        return 'text-green-600';
-      case 'yellow':
-        return 'text-yellow-600';
-      case 'purple':
-        return 'text-purple-600';
-      default:
-        return 'text-gray-600';
-    }
+    const colorMap = {
+      blue: 'text-blue-600',
+      red: 'text-red-600',
+      green: 'text-green-600',
+      yellow: 'text-yellow-600',
+      purple: 'text-purple-600'
+    };
+    return colorMap[color] || 'text-gray-600';
   };
 
   const parseProducts = (products) => {
     if (!products) return {};
-    try {
-      return JSON.parse(products.replace(/""/g, '"'));
-    } catch (error) {
-      console.error('Error parsing products:', error);
-      return {};
+    if (typeof products === 'string') {
+      try {
+        return JSON.parse(products.replace(/""/g, '"'));
+      } catch (error) {
+        console.error('Error parsing products:', error);
+        return {};
+      }
     }
+    return products; // If it's already an object, return as is
   };
 
   const products = parseProducts(contact?.products);
@@ -72,6 +104,7 @@ const ContactCard = ({ contact, user, color, visibleFields }) => {
 
   return (
     <div className="mb-4 p-4 bg-white rounded-lg shadow-md border border-gray-200 flex flex-col justify-between">
+      {error && <div className="text-red-500 mb-2">{error}</div>}
       <div>
         {visibleFields.name && <div className={`text-sm font-bold ${getTextColorClass(color)} mb-2`}>{contact.name}</div>}
         {visibleFields.mobilenumber1 && <p className="text-sm mb-1">Contact No: {contact.mobilenumber1}</p>}
@@ -91,9 +124,9 @@ const ContactCard = ({ contact, user, color, visibleFields }) => {
         {visibleFields.products && Object.values(products).length > 0 && (
           <Box mt={2}>
             <Typography variant="body2">Products:</Typography>
-            {Object.values(products).map((product) => (
+            {Object.values(products).map((product, index) => (
               <Chip 
-                key={product.product_id}
+                key={index}
                 label={`${product.product_name} (${product.quantity})`}
                 size="small"
                 sx={{ mr: 1, mt: 1 }}
@@ -109,7 +142,7 @@ const ContactCard = ({ contact, user, color, visibleFields }) => {
           </button>
         </Tooltip>
         <Tooltip title="Edit">
-          <button className="p-1 rounded-full hover:bg-gray-200">
+          <button className="p-1 rounded-full hover:bg-gray-200" onClick={handleEditClick}>
             <EditIcon fontSize="small" />
           </button>
         </Tooltip>
@@ -138,6 +171,31 @@ const ContactCard = ({ contact, user, color, visibleFields }) => {
         <DialogActions>
           <Button onClick={handleClose} color="primary">
             Close
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={editOpen} onClose={handleEditClose} fullWidth maxWidth="md">
+        <DialogTitle>Edit Contact</DialogTitle>
+        <DialogContent>
+          <FormControl fullWidth margin="normal">
+            <InputLabel>Pipeline</InputLabel>
+            <Select value={selectedPipeline} onChange={handlePipelineChange}>
+              {pipelines.map((pipeline) => (
+                <MenuItem key={pipeline.pipeline_id} value={pipeline.pipeline_id}>
+                  {pipeline.pipeline_name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <PipelineFormJSON enquiryId={contact.id} />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleEditClose} color="primary">
+            Cancel
+          </Button>
+          <Button onClick={handleSave} color="primary">
+            Save
           </Button>
         </DialogActions>
       </Dialog>

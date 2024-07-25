@@ -122,7 +122,7 @@ const TaskCard = ({ task, user, color, visibleFields }) => {
       <AddTaskDialog
         open={addTaskOpen}
         handleClose={handleAddTaskClose}
-        taskId={task.id}
+        enquiryId={task.enquiry_id}
         assignedBy={user.id}
       />
     </div>
