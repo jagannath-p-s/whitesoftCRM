@@ -221,7 +221,7 @@ const BatchComponent = () => {
               <TableRow>
                 <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>Batch Code</TableCell>
                 <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>Expiry Date</TableCell>
-                <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>Current Stock</TableCell>
+                <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>Stock</TableCell>
                 <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>Product</TableCell>
                 <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>Actions</TableCell>
               </TableRow>

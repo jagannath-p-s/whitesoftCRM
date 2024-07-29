@@ -26,7 +26,7 @@ import {
   Tooltip,
   Divider,
 } from '@mui/material';
-import { Delete, Edit, Add, ArrowBack, ArrowForward, TextFields, CheckBox, AttachFile } from '@mui/icons-material';
+import { Delete, Edit, Add, ArrowBack, ArrowForward } from '@mui/icons-material';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import { styled } from '@mui/material/styles';
 import { supabase } from '../supabaseClient';
@@ -49,12 +49,8 @@ const StyledIconButton = styled(IconButton)(({ theme }) => ({
 
 const StyledListItem = styled(ListItem)(({ theme }) => ({
   borderRadius: theme.shape.borderRadius,
-  transition: 'background-color 0.3s',
   '&:hover': {
     backgroundColor: theme.palette.action.hover,
-  },
-  '&::before': {
-    content: 'none',
   },
 }));
 
@@ -109,12 +105,10 @@ const Pipelines = () => {
     });
     setOpenDialog(true);
 
-    if (type === 'pipeline') {
-      setCurrentPipeline(item);
-    } else if (type === 'stage') {
-      setCurrentStage(item);
-    } else if (type === 'field') {
-      setCurrentField(item);
+    if (item) {
+      if (type === 'pipeline') setCurrentPipeline(item);
+      else if (type === 'stage') setCurrentStage(item);
+      else if (type === 'field') setCurrentField(item);
     }
   };
 
@@ -197,23 +191,10 @@ const Pipelines = () => {
     setSnackbar((prev) => ({ ...prev, open: false }));
   };
 
-  const getIconForFieldType = (type) => {
-    switch (type) {
-      case 'textfield':
-        return <TextFields />;
-      case 'checkbox':
-        return <CheckBox />;
-      case 'file':
-        return <AttachFile />;
-      default:
-        return null;
-    }
-  };
-
   const renderPipelineCard = (pipeline) => (
-    <StyledPaper key={pipeline.pipeline_id}>
+    <StyledPaper key={pipeline.pipeline_id} onClick={() => setCurrentPipeline(pipeline)}>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-        <Typography variant="h6" fontWeight="bold" onClick={() => setCurrentPipeline(pipeline)}>
+        <Typography variant="h6" fontWeight="bold">
           {pipeline.pipeline_name}
         </Typography>
         <Box>
@@ -240,10 +221,11 @@ const Pipelines = () => {
   const renderStageListItem = (stage) => (
     <StyledListItem
       key={stage.stage_id}
+      onClick={() => setCurrentStage(currentStage?.stage_id === stage.stage_id ? null : stage)}
     >
       <ListItemText
         primary={
-          <Typography variant="subtitle1" fontWeight="bold" onClick={() => setCurrentStage(currentStage?.stage_id === stage.stage_id ? null : stage)}>
+          <Typography variant="subtitle1" fontWeight="bold">
             {stage.stage_name}
           </Typography>
         }
@@ -271,21 +253,17 @@ const Pipelines = () => {
   const renderFieldListItem = (field) => (
     <StyledListItem key={field.field_id}>
       <ListItemText
-        primary={
-          <Box display="flex" alignItems="center">
-            {getIconForFieldType(field.field_type)}
-            <Typography variant="body1" fontWeight="bold" ml={1}>{field.field_name}</Typography>
-          </Box>
-        }
+        primary={<Typography variant="body1" fontWeight="bold">{field.field_name}</Typography>}
+        secondary={`Type: ${field.field_type}`}
       />
       <ListItemSecondaryAction>
         <Tooltip title="Edit Field">
-          <StyledIconButton onClick={(e) => { e.stopPropagation(); handleOpenDialog('field', field); }} size="small">
+          <StyledIconButton onClick={() => handleOpenDialog('field', field)} size="small">
             <Edit />
           </StyledIconButton>
         </Tooltip>
         <Tooltip title="Delete Field">
-          <StyledIconButton onClick={(e) => { e.stopPropagation(); handleDelete('field', field); }} size="small">
+          <StyledIconButton onClick={() => handleDelete('field', field)} size="small">
             <Delete />
           </StyledIconButton>
         </Tooltip>
@@ -294,31 +272,28 @@ const Pipelines = () => {
   );
 
   return (
-    <div className="flex flex-col min-h-screen bg-gray-100">
-      <div className="bg-white shadow-md">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-3">
-            <div className="flex items-center space-x-4">
-              <AccountTreeIcon className="text-blue-500" style={{ fontSize: '1.75rem' }} />
-              <h1 className="text-xl font-semibold ml-2">Pipelines</h1>
-            </div>
-            <div className="flex items-center space-x-4">
-              <Tooltip title="Add new pipeline">
-                <IconButton
-                  className="p-2"
-                  onClick={() => handleOpenDialog('pipeline')}
-                  style={{ backgroundColor: '#e3f2fd', color: '#1e88e5', borderRadius: '12px' }}
-                >
-                  <Add style={{ fontSize: '1.75rem' }} />
-                </IconButton>
-              </Tooltip>
-            </div>
-          </div>
-        </div>
-      </div>
+    <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
+      <Box sx={{ bgcolor: 'background.paper', boxShadow: 1, mb: 4 }}>
+        <Container maxWidth="lg">
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <AccountTreeIcon sx={{ color: 'primary.main', fontSize: 32, mr: 2 }} />
+              <Typography variant="h4" component="h1" fontWeight="bold">Pipelines</Typography>
+            </Box>
+            <Tooltip title="Add new pipeline">
+              <IconButton
+                onClick={() => handleOpenDialog('pipeline')}
+                sx={{ bgcolor: 'primary.light', color: 'primary.main', '&:hover': { bgcolor: 'primary.main', color: 'primary.contrastText' } }}
+              >
+                <Add />
+              </IconButton>
+            </Tooltip>
+          </Box>
+        </Container>
+      </Box>
 
-      <Container maxWidth="md" className="flex-grow p-4 space-x-4 overflow-x-auto">
-        <StyledPaper>
+      <Container maxWidth="md">
+        <StyledPaper elevation={3}>
           <Breadcrumbs aria-label="breadcrumb" sx={{ mb: 3 }}>
             <Link underline="hover" color="inherit" onClick={() => { setCurrentStage(null); setCurrentPipeline(null); }}>
               Pipelines
@@ -328,22 +303,24 @@ const Pipelines = () => {
                 {currentPipeline.pipeline_name}
               </Link>
             )}
-            {currentStage && <Typography variant="h6" fontWeight="bold" color="textPrimary">{currentStage.stage_name}</Typography>}
+            {currentStage && <Typography color="text.primary">{currentStage.stage_name}</Typography>}
           </Breadcrumbs>
           <Divider sx={{ mb: 3 }} />
+          
           {!currentPipeline && (
-            <List>
+            <Box>
               {pipelines.map((pipeline) => renderPipelineCard(pipeline))}
-            </List>
+            </Box>
           )}
+          
           {currentPipeline && !currentStage && (
-            <>
-              <Box display="flex" justifyContent="space-between" alignItems="center">
-                <Typography variant="h6" gutterBottom fontWeight="bold">
+            <Box>
+              <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+                <Typography variant="h6" fontWeight="bold">
                   Stages of {currentPipeline.pipeline_name}
                 </Typography>
                 <Tooltip title="Back to Pipelines">
-                  <StyledIconButton onClick={() => setCurrentPipeline(null)} size="small">
+                  <StyledIconButton onClick={() => setCurrentPipeline(null)}>
                     <ArrowBack />
                   </StyledIconButton>
                 </Tooltip>
@@ -361,16 +338,17 @@ const Pipelines = () => {
                   Add Stage
                 </StyledButton>
               </Box>
-            </>
+            </Box>
           )}
+          
           {currentStage && (
-            <>
-              <Box display="flex" justifyContent="space-between" alignItems="center">
-                <Typography variant="h6" gutterBottom fontWeight="bold">
+            <Box>
+              <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+                <Typography variant="h6" fontWeight="bold">
                   Fields of {currentStage.stage_name}
                 </Typography>
                 <Tooltip title="Back to Stages">
-                  <StyledIconButton onClick={() => setCurrentStage(null)} size="small">
+                  <StyledIconButton onClick={() => setCurrentStage(null)}>
                     <ArrowBack />
                   </StyledIconButton>
                 </Tooltip>
@@ -388,50 +366,66 @@ const Pipelines = () => {
                   Add Field
                 </StyledButton>
               </Box>
-            </>
+            </Box>
           )}
         </StyledPaper>
 
         <Dialog open={openDialog} onClose={handleCloseDialog}>
-          <DialogTitle>{currentField ? 'Edit' : 'Add'} {dialogType}</DialogTitle>
+          <DialogTitle>{currentPipeline || currentStage || currentField ? 'Edit' : 'Add'} {dialogType}</DialogTitle>
           <DialogContent>
             <TextField
+              autoFocus
+              margin="dense"
               label="Name"
+              type="text"
               fullWidth
-              margin="normal"
+              variant="outlined"
               value={formData.name}
               onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
             />
             {dialogType === 'field' && (
-              <FormControl fullWidth margin="normal">
-                <InputLabel>Type</InputLabel>
+              <FormControl fullWidth margin="dense" variant="outlined">
+                <InputLabel id="field-type-label">Type</InputLabel>
                 <Select
+                  labelId="field-type-label"
                   value={formData.type}
                   onChange={(e) => setFormData((prev) => ({ ...prev, type: e.target.value }))}
+                  label="Type"
                 >
                   <MenuItem value="textfield">Textfield</MenuItem>
                   <MenuItem value="checkbox">Checkbox</MenuItem>
                   <MenuItem value="file">File</MenuItem>
+                  <MenuItem value="date">Date</MenuItem>
+                  <MenuItem value="number">Number</MenuItem>
                 </Select>
               </FormControl>
             )}
           </DialogContent>
           <DialogActions>
-            <Button onClick={handleCloseDialog}>Cancel</Button>
-            <Button onClick={handleFormSubmit} variant="contained" color="primary">
-              {currentField ? 'Update' : 'Submit'}
+            <Button onClick={handleCloseDialog} color="primary">
+              Cancel
+            </Button>
+            <Button onClick={handleFormSubmit} color="primary" variant="contained">
+              {currentPipeline || currentStage || currentField ? 'Update' : 'Add'}
             </Button>
           </DialogActions>
         </Dialog>
 
-        <Dialog open={confirmDialog.open} onClose={() => setConfirmDialog({ open: false, type: '', item: null })}>
+        <Dialog
+          open={confirmDialog.open}
+          onClose={() => setConfirmDialog({ open: false, type: '', item: null })}
+        >
           <DialogTitle>Confirm Deletion</DialogTitle>
           <DialogContent>
-            <Typography>Are you sure you want to delete this {confirmDialog.type}?</Typography>
+            <Typography>
+              Are you sure you want to delete this {confirmDialog.type}?
+            </Typography>
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setConfirmDialog({ open: false, type: '', item: null })}>Cancel</Button>
-            <Button onClick={confirmDelete} variant="contained" color="primary">
+            <Button onClick={() => setConfirmDialog({ open: false, type: '', item: null })} color="primary">
+              Cancel
+            </Button>
+            <Button onClick={confirmDelete} color="error" variant="contained">
               Delete
             </Button>
           </DialogActions>
@@ -448,7 +442,7 @@ const Pipelines = () => {
           </Alert>
         </Snackbar>
       </Container>
-    </div>
+    </Box>
   );
 };
 

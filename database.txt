@@ -75,7 +75,7 @@ create table
     salesflow_code text null,
     won_date timestamp with time zone null,
     pipeline_id integer null,
+    current_stage_id integer null,
     constraint enquiries_pkey primary key (id),
     constraint enquiries_pipeline_id_fkey foreign key (pipeline_id) references pipelines (pipeline_id)
   ) tablespace pg_default;
-

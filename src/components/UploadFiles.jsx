@@ -22,10 +22,10 @@ import {
   ListItemText,
   Snackbar,
   Alert,
-  Checkbox,
-  FormControlLabel,
-  FormGroup,
   Typography,
+  FormGroup,
+  FormControlLabel,
+  Checkbox,
 } from '@mui/material';
 import {
   MoreVert as MoreVertIcon,
@@ -37,6 +37,8 @@ import {
   PictureAsPdf as PdfIcon,
   Description as FileIcon,
   Edit as EditIcon,
+  ArrowUpward as ArrowUpwardIcon,
+  ArrowDownward as ArrowDownwardIcon,
 } from '@mui/icons-material';
 
 const UploadFiles = () => {
@@ -48,7 +50,6 @@ const UploadFiles = () => {
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [fileName, setFileName] = useState('');
   const [accessControl, setAccessControl] = useState({
-    admin_access: false,
     manager_access: false,
     salesperson_access: false,
     service_access: false,
@@ -60,15 +61,45 @@ const UploadFiles = () => {
   const [unsupportedFile, setUnsupportedFile] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [newFileName, setNewFileName] = useState('');
+  const [sortOrder, setSortOrder] = useState('asc');
+  const [sortField, setSortField] = useState('file_size');
+  const [userRole, setUserRole] = useState('');
+  const [userId, setUserId] = useState(null);
 
   useEffect(() => {
-    fetchFiles();
+    fetchUserRole();
   }, []);
 
+  useEffect(() => {
+    if (userRole && userId !== null) {
+      fetchFiles();
+    }
+  }, [sortOrder, sortField, userRole, userId]);
+
+  const fetchUserRole = async () => {
+    const user = JSON.parse(localStorage.getItem('user'));
+    if (user) {
+      setUserRole(user.role);
+      setUserId(user.id);
+    }
+  };
+
   const fetchFiles = async () => {
-    const { data, error } = await supabase
-      .from('uploaded_files_view')
-      .select('*');
+    if (!userId) {
+      return;
+    }
+
+    let query = supabase
+      .from('uploaded_files')
+      .select('*, users!inner(username)')
+      .order(sortField, { ascending: sortOrder === 'asc' });
+
+    if (userRole !== 'Admin') {
+      query = query.or(`uploaded_by.eq.${userId},admin_access.eq.true,manager_access.eq.true,salesperson_access.eq.true,service_access.eq.true,accounts_access.eq.true`);
+    }
+
+    const { data, error } = await query;
+
     if (error) {
       showSnackbar(`Error fetching files: ${error.message}`, 'error');
     } else {
@@ -108,14 +139,31 @@ const UploadFiles = () => {
   };
 
   const handleDelete = async () => {
-    const { error } = await supabase.from('uploaded_files').delete().eq('file_id', selectedFile.file_id);
-    if (error) {
-      showSnackbar(`Error deleting file: ${error.message}`, 'error');
-    } else {
-      await supabase.storage.from('files').remove([selectedFile.file_path]);
+    try {
+      const { error: storageError } = await supabase.storage
+        .from('files')
+        .remove([selectedFile.file_path]);
+
+      if (storageError) {
+        showSnackbar(`Error deleting file from storage: ${storageError.message}`, 'error');
+        return;
+      }
+
+      const { error: dbError } = await supabase
+        .from('uploaded_files')
+        .delete()
+        .eq('file_id', selectedFile.file_id);
+
+      if (dbError) {
+        showSnackbar(`Error deleting file from database: ${dbError.message}`, 'error');
+        return;
+      }
+
       showSnackbar('File deleted successfully', 'success');
       fetchFiles();
       handleMenuClose();
+    } catch (error) {
+      showSnackbar(`Unexpected error: ${error.message}`, 'error');
     }
   };
 
@@ -129,7 +177,6 @@ const UploadFiles = () => {
     setSelectedFiles([]);
     setFileName('');
     setAccessControl({
-      admin_access: false,
       manager_access: false,
       salesperson_access: false,
       service_access: false,
@@ -145,49 +192,12 @@ const UploadFiles = () => {
     setFileName(event.target.value);
   };
 
-  const handleAccessControlChange = (event) => {
-    const { name, checked } = event.target;
-    setAccessControl({ ...accessControl, [name]: checked });
-  };
-
-  const setDefaultAccessControl = () => {
-    const user = JSON.parse(localStorage.getItem('user'));
-    if (!user) return;
-
-    let newAccessControl = {
-      admin_access: false,
-      manager_access: false,
-      salesperson_access: false,
-      service_access: false,
-      accounts_access: false,
-    };
-
-    if (user.role === 'Admin') {
-      newAccessControl = {
-        admin_access: true,
-        manager_access: true,
-        salesperson_access: true,
-        service_access: true,
-        accounts_access: true,
-      };
-    } else if (user.role === 'Manager') {
-      newAccessControl = {
-        manager_access: true,
-        salesperson_access: true,
-        service_access: true,
-      };
-    } else if (user.role === 'Service') {
-      newAccessControl.service_access = true;
-    } else if (user.role === 'Accounts') {
-      newAccessControl.accounts_access = true;
-    } else if (user.role === 'Salesperson') {
-      newAccessControl.salesperson_access = true;
+  const handleFileUpload = async () => {
+    if (!fileName || selectedFiles.length === 0) {
+      showSnackbar('Please provide a file name and select at least one file.', 'error');
+      return;
     }
 
-    setAccessControl(newAccessControl);
-  };
-
-  const handleFileUpload = async () => {
     const user = JSON.parse(localStorage.getItem('user'));
 
     if (!user) {
@@ -307,6 +317,35 @@ const UploadFiles = () => {
     }
   };
 
+  const handleSortToggle = (field) => {
+    const isAsc = sortField === field && sortOrder === 'asc';
+    setSortOrder(isAsc ? 'desc' : 'asc');
+    setSortField(field);
+  };
+
+  const formatFileSize = (size) => {
+    if (size >= 1073741824) {
+      return (size / 1073741824).toFixed(2) + ' GB';
+    } else if (size >= 1048576) {
+      return (size / 1048576).toFixed(2) + ' MB';
+    } else {
+      return (size / 1024).toFixed(2) + ' KB';
+    }
+  };
+
+  const filteredFiles = files.filter((file) =>
+    file.file_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    file.users.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    new Date(file.upload_date).toLocaleDateString().toLowerCase().includes(searchTerm.toLowerCase()) ||
+    formatFileSize(file.file_size).toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  useEffect(() => {
+    if (userRole && userId !== null) {
+      fetchFiles();
+    }
+  }, [sortOrder, sortField, userRole, userId]);
+
   return (
     <div className="flex flex-col min-h-screen bg-gray-100">
       {/* Header */}
@@ -348,37 +387,53 @@ const UploadFiles = () => {
           <Table stickyHeader className="min-w-full">
             <TableHead>
               <TableRow>
-                <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>File Name</TableCell>
-                <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>Uploaded Date</TableCell>
-                <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>Uploaded By</TableCell>
-                <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>Preview</TableCell>
-                <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>Actions</TableCell>
+                <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>
+                  File Name
+                </TableCell>
+                <TableCell sx={{ fontWeight: 'bold', color: 'black', display: 'flex', alignItems: 'center' }}>
+                  Uploaded Date
+                  <IconButton onClick={() => handleSortToggle('upload_date')}>
+                    {sortOrder === 'asc' && sortField === 'upload_date' ? <ArrowUpwardIcon /> : <ArrowDownwardIcon />}
+                  </IconButton>
+                </TableCell>
+                <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>
+                  Uploaded By
+                </TableCell>
+                <TableCell sx={{ fontWeight: 'bold', color: 'black', display: 'flex', alignItems: 'center' }}>
+                  File Size
+                  <IconButton onClick={() => handleSortToggle('file_size')}>
+                    {sortOrder === 'asc' && sortField === 'file_size' ? <ArrowUpwardIcon /> : <ArrowDownwardIcon />}
+                  </IconButton>
+                </TableCell>
+                <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>
+                  Preview
+                </TableCell>
+                <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>
+                  Actions
+                </TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {files
-                .filter((file) =>
-                  file.file_name.toLowerCase().includes(searchTerm.toLowerCase())
-                )
-                .map((file) => (
-                  <TableRow key={file.file_id} className="bg-white border-b">
-                    <TableCell>{file.file_name}</TableCell>
-                    <TableCell>{new Date(file.upload_date).toLocaleDateString()}</TableCell>
-                    <TableCell>{file.uploaded_by_username}</TableCell>
-                    <TableCell>
-                      <Tooltip title="Preview file">
-                        <IconButton onClick={() => handleFilePreview(file.file_path)}>
-                          {getFileIcon(file.file_path)}
-                        </IconButton>
-                      </Tooltip>
-                    </TableCell>
-                    <TableCell>
-                      <IconButton onClick={(event) => handleMenuOpen(event, file)}>
-                        <MoreVertIcon />
+              {filteredFiles.map((file) => (
+                <TableRow key={file.file_id} className="bg-white border-b">
+                  <TableCell>{file.file_name}</TableCell>
+                  <TableCell>{new Date(file.upload_date).toLocaleDateString()}</TableCell>
+                  <TableCell>{file.users.username}</TableCell>
+                  <TableCell>{formatFileSize(file.file_size)}</TableCell>
+                  <TableCell>
+                    <Tooltip title="Preview file">
+                      <IconButton onClick={() => handleFilePreview(file.file_path)}>
+                        {getFileIcon(file.file_path)}
                       </IconButton>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                    </Tooltip>
+                  </TableCell>
+                  <TableCell>
+                    <IconButton onClick={(event) => handleMenuOpen(event, file)}>
+                      <MoreVertIcon />
+                    </IconButton>
+                  </TableCell>
+                </TableRow>
+              ))}
             </TableBody>
           </Table>
         </TableContainer>
@@ -427,18 +482,8 @@ const UploadFiles = () => {
             <FormControlLabel
               control={
                 <Checkbox
-                  checked={accessControl.admin_access}
-                  onChange={handleAccessControlChange}
-                  name="admin_access"
-                />
-              }
-              label="Admin Access"
-            />
-            <FormControlLabel
-              control={
-                <Checkbox
                   checked={accessControl.manager_access}
-                  onChange={handleAccessControlChange}
+                  onChange={(event) => setAccessControl({ ...accessControl, manager_access: event.target.checked })}
                   name="manager_access"
                 />
               }
@@ -448,7 +493,7 @@ const UploadFiles = () => {
               control={
                 <Checkbox
                   checked={accessControl.salesperson_access}
-                  onChange={handleAccessControlChange}
+                  onChange={(event) => setAccessControl({ ...accessControl, salesperson_access: event.target.checked })}
                   name="salesperson_access"
                 />
               }
@@ -458,7 +503,7 @@ const UploadFiles = () => {
               control={
                 <Checkbox
                   checked={accessControl.service_access}
-                  onChange={handleAccessControlChange}
+                  onChange={(event) => setAccessControl({ ...accessControl, service_access: event.target.checked })}
                   name="service_access"
                 />
               }
@@ -468,7 +513,7 @@ const UploadFiles = () => {
               control={
                 <Checkbox
                   checked={accessControl.accounts_access}
-                  onChange={handleAccessControlChange}
+                  onChange={(event) => setAccessControl({ ...accessControl, accounts_access: event.target.checked })}
                   name="accounts_access"
                 />
               }
@@ -535,7 +580,7 @@ const UploadFiles = () => {
         open={snackbar.open}
         autoHideDuration={6000}
         onClose={handleCloseSnackbar}
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
         <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} sx={{ width: '100%' }}>
           {snackbar.message}

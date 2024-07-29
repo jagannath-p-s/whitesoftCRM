@@ -129,9 +129,10 @@ const HomePage = () => {
     { icon: <StorageIcon />, tooltip: "Stock", component: 'Stock', permission: 'can_edit_stock' },
     { icon: <BuildIcon />, tooltip: "Services", component: 'Services', permission: 'can_edit_product' },
     { icon: <BusinessIcon />, tooltip: "Organisation", component: 'Organisation', permission: 'can_edit_staff' },
-    { icon: <CloudUploadOutlinedIcon />, tooltip: "Upload Files", component: 'UploadFiles', permission: 'can_edit_files' },
+   
     { icon: <InventoryIcon />, tooltip: "Batches", component: 'BatchComponent' },
     { icon: <SettingsOutlinedIcon />, tooltip: "Pipelines", component: 'Pipelines', permission: 'can_edit_pipeline' },
+    { icon: <CloudUploadOutlinedIcon />, tooltip: "Upload Files", component: 'UploadFiles', permission: 'can_edit_files' },
   ];
 
   const renderComponent = () => {
