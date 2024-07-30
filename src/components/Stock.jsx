@@ -91,11 +91,11 @@ const Stock = () => {
     serialNumber: true,
     itemName: true,
     itemAlias: true,
-    partNumber: true,
-    model: true,
-    remarks: true,
-    stockGroup: true,
-    imageLink: true,
+    partNumber: '',
+    model: '',
+    remarks: '',
+    stockGroup: '',
+    imageLink: '',
   });
   const [searchTerm, setSearchTerm] = useState('');
   const [productToDelete, setProductToDelete] = useState(null);

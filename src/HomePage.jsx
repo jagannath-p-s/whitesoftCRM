@@ -122,14 +122,12 @@ const HomePage = () => {
   }, [activeComponent]);
 
   const navItems = [
-    // { icon: <PeopleOutlineIcon />, tooltip: "Contacts", component: 'Contacts', permission: 'can_edit_enquiries' },
     { icon: <ShoppingBagOutlinedIcon />, tooltip: "Sales", component: 'Sales', permission: 'can_edit_sales' },
     { icon: <EventNoteIcon />, tooltip: "Activities", component: 'Activities' },
     { icon: <EqualizerIcon />, tooltip: "Dashboard", component: 'Dashboard', permission: 'can_see_performance' },
     { icon: <StorageIcon />, tooltip: "Stock", component: 'Stock', permission: 'can_edit_stock' },
     { icon: <BuildIcon />, tooltip: "Services", component: 'Services', permission: 'can_edit_product' },
     { icon: <BusinessIcon />, tooltip: "Organisation", component: 'Organisation', permission: 'can_edit_staff' },
-   
     { icon: <InventoryIcon />, tooltip: "Batches", component: 'BatchComponent' },
     { icon: <SettingsOutlinedIcon />, tooltip: "Pipelines", component: 'Pipelines', permission: 'can_edit_pipeline' },
     { icon: <CloudUploadOutlinedIcon />, tooltip: "Upload Files", component: 'UploadFiles', permission: 'can_edit_files' },
@@ -139,30 +137,28 @@ const HomePage = () => {
     if (!user) return null;
 
     switch (activeComponent) {
-      // case 'Contacts':
-      //   return user.can_edit_enquiries ? <Contacts /> : null;
       case 'Sales':
-        return user.can_edit_sales ? <Sales /> : null;
+        return user.can_edit_sales ? <Sales userId={user.id} /> : null;
       case 'Activities':
-        return <Activities />;
+        return <Activities userId={user.id} />;
       case 'Dashboard':
         return user.can_see_performance ? <Dashboard /> : null;
       case 'Stock':
-        return user.can_edit_stock ? <Stock /> : null;
+        return user.can_edit_stock ? <Stock userId={user.id} /> : null;
       case 'Services':
-        return user.can_edit_product ? <Services /> : null;
+        return user.can_edit_product ? <Services userId={user.id} /> : null;
       case 'Organisation':
-        return user.can_edit_staff ? <Organisation /> : null;
+        return user.can_edit_staff ? <Organisation userId={user.id} /> : null;
       case 'UploadFiles':
-        return user.can_edit_files ? <UploadFiles /> : null;
+        return user.can_edit_files ? <UploadFiles userId={user.id} /> : null;
       case 'BatchComponent':
-        return <BatchComponent />;
+        return <BatchComponent userId={user.id} />;
       case 'Pipelines':
-        return user.can_edit_pipeline ? <Pipelines /> : null;
+        return user.can_edit_pipeline ? <Pipelines userId={user.id} /> : null;
       case 'SearchComponent':
         return <SearchComponent searchTerm={searchTerm} />;
       default:
-        return user.can_see_performance ? <Dashboard /> : <Activities />;
+        return user.can_see_performance ? <Dashboard /> : <Activities userId={user.id} />;
     }
   };
 

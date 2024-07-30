@@ -12,13 +12,15 @@ import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
-import { supabase } from '../supabaseClient';
-import AddTaskDialog from './AddTaskDialog';
-import PipelineFormJSON from './PipelineFormJSON';
+import Snackbar from '@mui/material/Snackbar';
+import Alert from '@mui/material/Alert';
 import Select from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
 import FormControl from '@mui/material/FormControl';
 import InputLabel from '@mui/material/InputLabel';
+import { supabase } from '../supabaseClient';
+import AddTaskDialog from './AddTaskDialog';
+import PipelineFormJSON from './PipelineFormJSON';
 
 const ContactCard = ({ contact, user, color, visibleFields }) => {
   const [open, setOpen] = useState(false);
@@ -27,12 +29,24 @@ const ContactCard = ({ contact, user, color, visibleFields }) => {
   const [pipelines, setPipelines] = useState([]);
   const [selectedPipeline, setSelectedPipeline] = useState(contact?.pipeline_id || '');
   const [error, setError] = useState(null);
+  const [tasks, setTasks] = useState([]);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
   const userInitial = user?.username ? user.username.charAt(0).toUpperCase() : 'J';
   const username = user?.username ? user.username : 'Unknown User';
 
   useEffect(() => {
     fetchPipelines();
+    fetchUserTasks(user.id);
+    const taskSubscription = supabase
+      .channel('public:tasks')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks', filter: `assigned_to=eq.${user.id}` }, (payload) => {
+        fetchUserTasks(user.id);
+      })
+      .subscribe();
+    return () => {
+      supabase.removeChannel(taskSubscription);
+    };
   }, []);
 
   const fetchPipelines = async () => {
@@ -46,8 +60,36 @@ const ContactCard = ({ contact, user, color, visibleFields }) => {
     }
   };
 
-  const handleInitialClick = () => setOpen(true);
-  const handleClose = () => setOpen(false);
+  const fetchUserTasks = async (userId) => {
+    try {
+      const { data, error } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('assigned_to', userId)
+        .not('completion_status', 'eq', 'completed');
+
+      if (error) throw error;
+      setTasks(data);
+    } catch (error) {
+      console.error('Error fetching user tasks:', error);
+      setSnackbar({
+        open: true,
+        message: 'Failed to fetch tasks. Please try again later.',
+        severity: 'error'
+      });
+      setTasks([]);
+    }
+  };
+
+  const handleInitialClick = async () => {
+    await fetchUserTasks(user.id);
+    setOpen(true);
+  };
+
+  const handleClose = () => {
+    setOpen(false);
+  };
+
   const handleEditClick = () => setEditOpen(true);
   const handleEditClose = () => setEditOpen(false);
   const handleAddClick = () => setAddTaskOpen(true);
@@ -161,11 +203,21 @@ const ContactCard = ({ contact, user, color, visibleFields }) => {
       </div>
 
       <Dialog open={open} onClose={handleClose}>
-        <DialogTitle>Assigned To</DialogTitle>
+        <DialogTitle>Assigned Tasks</DialogTitle>
         <DialogContent>
-          <DialogContentText>
-            {username}
-          </DialogContentText>
+          {tasks.length > 0 ? (
+            tasks.map((task) => (
+              <Box key={task.id} mb={2}>
+                <Typography variant="body1"><strong>Task Name:</strong> {task.task_name}</Typography>
+                <Typography variant="body2"><strong>Task Message:</strong> {task.task_message}</Typography>
+                <Typography variant="body2"><strong>Completion Status:</strong> {task.completion_status}</Typography>
+              </Box>
+            ))
+          ) : (
+            <DialogContentText>
+              No tasks assigned currently. Assigned to: {username}
+            </DialogContentText>
+          )}
         </DialogContent>
         <DialogActions>
           <Button onClick={handleClose} color="primary">
@@ -205,6 +257,17 @@ const ContactCard = ({ contact, user, color, visibleFields }) => {
         enquiryId={contact.id}
         assignedBy={user.id}
       />
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={() => setSnackbar({ ...snackbar, open: false })} severity={snackbar.severity}>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </div>
   );
 };

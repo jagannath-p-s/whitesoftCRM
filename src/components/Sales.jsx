@@ -6,6 +6,7 @@ import TableChartOutlinedIcon from '@mui/icons-material/TableChartOutlined';
 import ViewListIcon from '@mui/icons-material/ViewList';
 import FileUploadOutlinedIcon from '@mui/icons-material/FileUploadOutlined';
 import Column from './Column';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import TableView from './TableView';
 import { supabase } from '../supabaseClient';
 import { DragDropContext } from 'react-beautiful-dnd';
@@ -221,11 +222,13 @@ const Sales = () => {
                   )}
                 </button>
               </Tooltip>
-              <Tooltip title="Upload">
-                <button className="p-2 text-gray-500 hover:bg-gray-100 rounded-full">
-                  <FileUploadOutlinedIcon style={{ fontSize: '1.75rem' }} />
-                </button>
-              </Tooltip>
+              <Tooltip title="View Completed Sales">
+  <button className="flex items-center p-2 text-gray-500 hover:bg-gray-100 rounded-full">
+    <CheckCircleOutlineIcon style={{ fontSize: '1.75rem' }} />
+ 
+  </button>
+</Tooltip>
+
             </div>
           </div>
         </div>

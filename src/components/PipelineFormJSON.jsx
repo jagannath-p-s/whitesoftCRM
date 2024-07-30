@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { supabase } from '../supabaseClient';
 import {
   TextField,
   Select,
@@ -26,6 +25,7 @@ import {
   FormControlLabel,
   Grid,
 } from '@mui/material';
+import { supabase } from '../supabaseClient';
 
 const PipelineFormJSON = ({ enquiryId }) => {
   const [pipelines, setPipelines] = useState([]);
@@ -38,6 +38,7 @@ const PipelineFormJSON = ({ enquiryId }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
   const [filePreviewDialog, setFilePreviewDialog] = useState({ open: false, url: '', type: '' });
+  const [pipelineDialogOpen, setPipelineDialogOpen] = useState(false);
 
   const showSnackbar = (message, severity = 'info') => {
     setSnackbar({ open: true, message, severity });
@@ -73,6 +74,8 @@ const PipelineFormJSON = ({ enquiryId }) => {
         setCurrentStage(data.current_stage_id);
         await fetchStages(data.pipeline_id);
         await fetchPipelineData(data.pipeline_id);
+      } else {
+        setPipelineDialogOpen(true);
       }
     } catch (error) {
       showSnackbar('Failed to fetch existing data', 'error');
@@ -265,6 +268,13 @@ const PipelineFormJSON = ({ enquiryId }) => {
     fetchPipelineData(selectedPipeline);
   };
 
+  const handlePipelineSelection = async (pipelineId) => {
+    setSelectedPipeline(pipelineId);
+    setPipelineDialogOpen(false);
+    await fetchStages(pipelineId);
+    await fetchPipelineData(pipelineId);
+  };
+
   const renderFieldValue = (field) => {
     const value = formData[currentStage]?.[field.field_id];
 
@@ -298,7 +308,6 @@ const PipelineFormJSON = ({ enquiryId }) => {
 
   return (
     <Box>
-      
       <Grid container spacing={2}>
         <Grid item xs={12} md={6}>
           <FormControl fullWidth margin="normal">
@@ -421,6 +430,30 @@ const PipelineFormJSON = ({ enquiryId }) => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setFilePreviewDialog({ open: false, url: '', type: '' })} color="primary">
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={pipelineDialogOpen} onClose={() => setPipelineDialogOpen(false)}>
+        <DialogTitle>Select a Pipeline</DialogTitle>
+        <DialogContent>
+          <FormControl fullWidth margin="normal">
+            <InputLabel>Pipeline</InputLabel>
+            <Select
+              value={selectedPipeline || ''}
+              onChange={(e) => handlePipelineSelection(e.target.value)}
+            >
+              {pipelines.map((pipeline) => (
+                <MenuItem key={pipeline.pipeline_id} value={pipeline.pipeline_id}>
+                  {pipeline.pipeline_name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPipelineDialogOpen(false)} color="primary">
             Close
           </Button>
         </DialogActions>

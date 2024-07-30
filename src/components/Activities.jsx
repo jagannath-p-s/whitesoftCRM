@@ -17,7 +17,7 @@ import FormControlLabel from '@mui/material/FormControlLabel';
 import TaskCard from './TaskCard';
 import { supabase } from '../supabaseClient';
 
-const Activities = () => {
+const Activities = ({ userId }) => {
   const initialExpandedColumns = [];
   const [expanded, setExpanded] = useState(initialExpandedColumns);
   const [view, setView] = useState('cards');
@@ -32,51 +32,60 @@ const Activities = () => {
     type: true,
     assignedto: false,
   });
-  const [activeTab, setActiveTab] = useState('tasks');
 
   useEffect(() => {
     const fetchData = async () => {
-      const { data: tasks, error: tasksError } = await supabase
-        .from('tasks')
-        .select('*');
-      console.log('Fetched tasks:', tasks); // Check if tasks are fetched
+      if (userId) {
+        const { data: tasks, error: tasksError } = await supabase
+          .from('tasks')
+          .select('*')
+          .eq('assigned_to', userId); // Filter tasks assigned to the current user
 
-      const { data: usersData, error: usersError } = await supabase
-        .from('users')
-        .select('id, username');
-      console.log('Fetched users:', usersData); // Check if users are fetched
+        const { data: usersData, error: usersError } = await supabase
+          .from('users')
+          .select('id, username');
 
-      if (tasksError || usersError) {
-        console.error('Error fetching data:', tasksError || usersError);
-      } else {
-        const categorizedData = [
-          { name: 'New', color: 'yellow', bgColor: 'bg-yellow-50', tasks: [] },
-          { name: 'Ongoing', color: 'blue', bgColor: 'bg-blue-50', tasks: [] },
-          { name: 'Completed', color: 'green', bgColor: 'bg-green-50', tasks: [] },
-          { name: 'Overdue', color: 'red', bgColor: 'bg-red-50', tasks: [] }, // Added overdue category
-        ];
+        if (tasksError || usersError) {
+          console.error('Error fetching data:', tasksError || usersError);
+        } else {
+          const categorizedData = [
+            { name: 'New', color: 'yellow', bgColor: 'bg-yellow-50', tasks: [] },
+            { name: 'Ongoing', color: 'blue', bgColor: 'bg-blue-50', tasks: [] },
+            { name: 'Completed', color: 'green', bgColor: 'bg-green-50', tasks: [] },
+            { name: 'Overdue', color: 'red', bgColor: 'bg-red-50', tasks: [] },
+          ];
 
-        tasks.forEach((task) => {
-          console.log('Task completion_status:', task.completion_status); // Debug log for task status
-          const category = categorizedData.find(c => c.name.toLowerCase() === task.completion_status);
-          if (category) {
-            category.tasks.push(task);
-          }
-        });
-        console.log('Categorized tasks:', categorizedData); // Check if tasks are categorized correctly
+          tasks.forEach((task) => {
+            const category = categorizedData.find(c => c.name.toLowerCase() === task.completion_status);
+            if (category) {
+              category.tasks.push(task);
+            }
+          });
 
-        const usersMap = usersData.reduce((acc, user) => {
-          acc[user.id] = user;
-          return acc;
-        }, {});
+          const usersMap = usersData.reduce((acc, user) => {
+            acc[user.id] = user;
+            return acc;
+          }, {});
 
-        setUsers(usersMap);
-        setColumns(categorizedData);
+          setUsers(usersMap);
+          setColumns(categorizedData);
+        }
       }
     };
 
     fetchData();
-  }, []);
+
+    const taskSubscription = supabase
+      .channel('public:tasks')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks', filter: `assigned_to=eq.${userId}` }, (payload) => {
+        fetchData(); // Fetch tasks again when changes occur
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(taskSubscription);
+    };
+  }, [userId]);
 
   const toggleExpand = (column) => {
     if (expanded.includes(column)) {
@@ -171,7 +180,7 @@ const Activities = () => {
                   <SettingsOutlinedIcon style={{ fontSize: '1.75rem' }} />
                 </button>
               </Tooltip>
-              <Tooltip title={view === 'cards' ? "Table View" : "Card View"}>
+              {/* <Tooltip title={view === 'cards' ? "Table View" : "Card View"}>
                 <button
                   className="p-2 text-gray-500 hover:bg-gray-100 rounded-full"
                   onClick={() => setView(view === 'cards' ? 'table' : 'cards')}
@@ -182,7 +191,7 @@ const Activities = () => {
                     <ViewListIcon style={{ fontSize: '1.75rem' }} />
                   )}
                 </button>
-              </Tooltip>
+              </Tooltip> */}
             </div>
           </div>
         </div>

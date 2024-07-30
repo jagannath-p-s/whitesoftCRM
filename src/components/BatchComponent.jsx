@@ -234,11 +234,6 @@ const BatchComponent = () => {
                   <TableCell>{batch.current_stock}</TableCell>
                   <TableCell>{products.find((product) => product.product_id === batch.product_id)?.product_name}</TableCell>
                   <TableCell>
-                    <Tooltip title="Edit">
-                      <IconButton onClick={() => handleEditBatch(batch)}>
-                        <EditIcon />
-                      </IconButton>
-                    </Tooltip>
                     <Tooltip title="Delete">
                       <IconButton onClick={() => handleDeleteBatch(batch.batch_id)}>
                         <DeleteIcon />
@@ -263,7 +258,7 @@ const BatchComponent = () => {
         open={snackbar.open}
         autoHideDuration={6000}
         onClose={handleCloseSnackbar}
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
         <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} sx={{ width: '100%' }}>
           {snackbar.message}

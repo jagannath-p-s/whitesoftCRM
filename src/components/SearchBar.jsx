@@ -172,15 +172,18 @@ const SearchBar = ({ onSearch, currentUserId }) => {
   const handleFormSubmit = async () => {
     try {
       // Create a deep copy of enquiryData to avoid circular structure issues
+      let salesflow_code = enquiryData.salesflow_code ? `${enquiryData.salesflow_code}-${enquiryData.assignedto}` : `${enquiryData.assignedto}`;
+      
       const enquiryToSave = JSON.parse(JSON.stringify({
         ...enquiryData,
         products: dialogType === 'product' ? selectedProducts : null,
+        salesflow_code, // Set the updated salesflow_code
       }));
-
+  
       console.log('Enquiry to be saved:', enquiryToSave);
-
+  
       const { data: result, error } = await supabase.from('enquiries').insert([enquiryToSave]);
-
+  
       if (error) throw error;
       console.log('Enquiry saved successfully:', result);
       showSnackbar('Enquiry saved successfully!', 'success');
@@ -190,6 +193,8 @@ const SearchBar = ({ onSearch, currentUserId }) => {
       showSnackbar(`Failed to save the enquiry: ${error.message}`, 'error');
     }
   };
+  
+  
 
   const handlePageChange = (event, value) => {
     setPage(value);
@@ -245,26 +250,27 @@ const SearchBar = ({ onSearch, currentUserId }) => {
         />
       ) : (
         <AddEnquiryDialog
-          dialogOpen={dialogOpen}
-          dialogType={dialogType}
-          enquiryData={enquiryData}
-          handleEnquiryDataChange={handleEnquiryDataChange}
-          handleDialogClose={handleDialogClose}
-          handleFormSubmit={handleFormSubmit}
-          users={users}
-          products={products}
-          selectedProducts={selectedProducts}
-          handleProductToggle={handleProductToggle}
-          handleQuantityChange={handleQuantityChange}
-          productSearchTerm={productSearchTerm}
-          handleProductSearchChange={handleProductSearchChange}
-          page={page}
-          handlePageChange={handlePageChange}
-          totalEstimate={totalEstimate}
-          ITEMS_PER_PAGE={ITEMS_PER_PAGE}
-          totalProducts={totalProducts}
-          currentUserId={currentUserId}
-        />
+  dialogOpen={dialogOpen}
+  dialogType={dialogType}
+  enquiryData={enquiryData}
+  handleEnquiryDataChange={handleEnquiryDataChange}
+  handleDialogClose={handleDialogClose}
+  handleFormSubmit={handleFormSubmit}
+  users={users}
+  products={products}
+  selectedProducts={selectedProducts}
+  handleProductToggle={handleProductToggle}
+  handleQuantityChange={handleQuantityChange}
+  productSearchTerm={productSearchTerm}
+  handleProductSearchChange={handleProductSearchChange}
+  page={page}
+  handlePageChange={handlePageChange}
+  totalEstimate={totalEstimate}
+  ITEMS_PER_PAGE={ITEMS_PER_PAGE}
+  totalProducts={totalProducts}
+  currentUserId={currentUserId} // Pass currentUserId
+/>
+
       )}
 
       <Snackbar
