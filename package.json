@@ -16,13 +16,16 @@
     "@mui/icons-material": "^5.16.4",
     "@mui/lab": "^5.0.0-alpha.172",
     "@mui/material": "^5.16.4",
-    "@mui/x-date-pickers": "^7.11.0",
+    "@mui/x-date-pickers": "^7.11.1",
     "@supabase/supabase-js": "^2.44.4",
     "bcryptjs": "^2.4.3",
     "chart.js": "^4.4.3",
     "date-fns": "^3.6.0",
     "dayjs": "^1.11.12",
     "file-saver": "^2.0.5",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^2.5.1",
+    "jspdf-autotable": "^3.8.2",
     "lucide-react": "^0.414.0",
     "react": "^18.3.1",
     "react-beautiful-dnd": "^13.1.1",
@@ -31,6 +34,7 @@
     "react-datepicker": "^7.3.0",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.25.1",
+    "react-to-print": "^2.15.1",
     "react-window": "^1.8.10",
     "recharts": "^2.12.7",
     "shadcn": "^1.0.0",
@@ -48,5 +52,10 @@
     "postcss": "^8.4.39",
     "tailwindcss": "^3.4.6",
     "vite": "^5.3.4"
-  }
+  },
+  "description": "This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.",
+  "main": "insertAdmin.js",
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
 }

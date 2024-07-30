@@ -4,7 +4,6 @@ import ShoppingBagOutlinedIcon from '@mui/icons-material/ShoppingBagOutlined';
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
 import TableChartOutlinedIcon from '@mui/icons-material/TableChartOutlined';
 import ViewListIcon from '@mui/icons-material/ViewList';
-import FileUploadOutlinedIcon from '@mui/icons-material/FileUploadOutlined';
 import Column from './Column';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import TableView from './TableView';
@@ -19,6 +18,7 @@ import Button from '@mui/material/Button';
 import Checkbox from '@mui/material/Checkbox';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import PrintBillDialog from './PrintBillDialog';
+import Dash from './Dash';  // Import Dash component
 
 const Sales = () => {
   const initialExpandedColumns = [];
@@ -48,6 +48,7 @@ const Sales = () => {
   const [printDialogOpen, setPrintDialogOpen] = useState(false);
   const [customerDetails, setCustomerDetails] = useState(null);
   const [dragResult, setDragResult] = useState(null);
+  const [viewCompletedSales, setViewCompletedSales] = useState(false); // State for viewing completed sales
 
   useEffect(() => {
     const fetchData = async () => {
@@ -223,12 +224,13 @@ const Sales = () => {
                 </button>
               </Tooltip>
               <Tooltip title="View Completed Sales">
-  <button className="flex items-center p-2 text-gray-500 hover:bg-gray-100 rounded-full">
-    <CheckCircleOutlineIcon style={{ fontSize: '1.75rem' }} />
- 
-  </button>
-</Tooltip>
-
+                <button
+                  className="flex items-center p-2 text-gray-500 hover:bg-gray-100 rounded-full"
+                  onClick={() => setViewCompletedSales(true)}  // Toggle view to completed sales
+                >
+                  <CheckCircleOutlineIcon style={{ fontSize: '1.75rem' }} />
+                </button>
+              </Tooltip>
             </div>
           </div>
         </div>
@@ -267,24 +269,28 @@ const Sales = () => {
       />
 
       {/* Content */}
-      <div className="flex flex-grow p-4 space-x-4 overflow-x-auto">
-        <DragDropContext onDragEnd={onDragEnd}>
-          {view === 'cards' ? (
-            columns.map((column) => (
-              <Column
-                key={column.name}
-                column={column}
-                expanded={expanded}
-                toggleExpand={toggleExpand}
-                users={users}
-                visibleFields={visibleFields}
-              />
-            ))
-          ) : (
-            <TableView columns={columns} users={users} visibleFields={visibleFields} />
-          )}
-        </DragDropContext>
-      </div>
+      {viewCompletedSales ? (
+        <Dash />  // Render the Dash component when viewing completed sales
+      ) : (
+        <div className="flex flex-grow p-4 space-x-4 overflow-x-auto">
+          <DragDropContext onDragEnd={onDragEnd}>
+            {view === 'cards' ? (
+              columns.map((column) => (
+                <Column
+                  key={column.name}
+                  column={column}
+                  expanded={expanded}
+                  toggleExpand={toggleExpand}
+                  users={users}
+                  visibleFields={visibleFields}
+                />
+              ))
+            ) : (
+              <TableView columns={columns} users={users} visibleFields={visibleFields} />
+            )}
+          </DragDropContext>
+        </div>
+      )}
     </div>
   );
 };
